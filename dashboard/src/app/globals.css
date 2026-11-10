@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+/*
+ * Reliability - dark-first operator console.
+ * Restrained palette: one accent, status colours carrying all the signal,
+ * and borders doing the structural work instead of shadows or gradients.
+ */
+
+:root {
+  --bg: #08080a;
+  --panel: #0e0e11;
+  --panel-raised: #141418;
+  --border: #1e1e24;
+  --border-strong: #2a2a32;
+  --text: #e7e7ea;
+  --text-muted: #8b8b96;
+  --text-faint: #5c5c66;
+  --accent: #6366f1;
+  --accent-soft: #818cf8;
+
+  /*
+   * Status + series colours, validated as a set against the panel surface
+   * (lightness band, chroma floor, CVD separation, normal-vision floor and
+   * contrast all pass). The stacking order used in charts is
+   * completed -> active -> failed -> cancelled, which keeps green and red
+   * from ever sitting adjacent.
+   */
+  --success: #0ca30c;
+  --running: #3987e5;
+  --failed: #d03b3b;
+  --serious: #ec835a;
+  --warning: #fab219;
+  --cancelled: #9a72c4;
+  --paused: #fab219;
+  --idle: #6b6b74;
+  --critical: #d03b3b;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-raised: var(--panel-raised);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-running: var(--running);
+  --color-idle: var(--idle);
+  --color-warning: var(--warning);
+  --color-failed: var(--failed);
+  --color-paused: var(--paused);
+  --color-success: var(--success);
+  --color-cancelled: var(--cancelled);
+  --color-serious: var(--serious);
+  --color-critical: var(--critical);
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a44;
+}
+
+/* Live indicator: a slow pulse, not an attention-grab. */
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.pulse {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* New trace rows fade in rather than snapping, so a fast stream stays readable. */
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.row-in {
+  animation: row-in 0.18s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse,
+  .row-in {
+    animation: none;
+  }
+}

@@ -30,7 +30,7 @@ from app.control import (
     notify_control_change,
 )
 from app.ingest import publish_execution_update, refresh_agent_state, store_events
-from app.models import ExecutionStatus, Intervention
+from app.models import ExecutionStatus, Intervention, utcnow
 from app.routers.executions import get_owned_execution
 from app.schemas import (
     ControlStateOut,
@@ -82,6 +82,10 @@ async def poll_control(
     wait: Annotated[float, Query(ge=0, le=60)] = 0,
 ) -> ControlStateOut:
     execution = await get_owned_execution(session, user, execution_id)
+    # Polling is itself proof the runtime is alive, which is how a paused
+    # execution - which emits no events at all - stays distinguishable from
+    # an agent process that has died.
+    execution.last_heartbeat_at = utcnow()
     state = await compute_control_state(session, execution.id)
     await session.commit()
 

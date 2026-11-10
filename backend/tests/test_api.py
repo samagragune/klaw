@@ -594,3 +594,66 @@ async def test_control_actions_are_audited(client):
     actions = [row["action"] for row in (await client.get("/v1/audit")).json()]
     assert "intervention.pause" in actions
     assert "agent.registered" in actions
+
+
+# ---------------------------------------------------------------------------
+# Timestamp correctness
+# ---------------------------------------------------------------------------
+
+async def test_every_timestamp_the_api_returns_carries_a_timezone(client):
+    """A bare timestamp is read by browsers as local time, not UTC.
+
+    SQLite has no timezone type, so without normalisation every trace event
+    would render hours out in the dashboard.
+    """
+    agent_id = await register(client)
+    execution_id = await start(client, agent_id)
+    await client.post(
+        "/v1/ingest/events",
+        json={
+            "execution_id": execution_id,
+            "events": [
+                event(0, "tool.started", {"tool_name": "s", "args_fingerprint": "f"}),
+                event(1, "execution.completed", {}),
+            ],
+        },
+    )
+
+    def assert_aware(value: str | None, label: str) -> None:
+        if value is None:
+            return
+        parsed = datetime.fromisoformat(value)
+        assert parsed.tzinfo is not None, f"{label} has no timezone: {value!r}"
+
+    detail = (await client.get(f"/v1/executions/{execution_id}")).json()
+    for field in ("started_at", "completed_at", "last_event_at", "last_heartbeat_at"):
+        assert_aware(detail[field], f"execution.{field}")
+    for stored in detail["events"]:
+        assert_aware(stored["timestamp"], "event.timestamp")
+
+    agents = (await client.get("/v1/agents")).json()
+    assert_aware(agents[0]["created_at"], "agent.created_at")
+    assert_aware(agents[0]["last_seen_at"], "agent.last_seen_at")
+
+
+async def test_event_timestamps_survive_a_round_trip_unchanged(client):
+    agent_id = await register(client)
+    execution_id = await start(client, agent_id)
+    sent = datetime(2026, 3, 1, 12, 34, 56, tzinfo=timezone.utc)
+    await client.post(
+        "/v1/ingest/events",
+        json={
+            "execution_id": execution_id,
+            "events": [
+                {
+                    "client_event_id": uuid.uuid4().hex,
+                    "seq": 0,
+                    "event_type": "log",
+                    "timestamp": sent.isoformat(),
+                    "payload": {"message": "hello"},
+                }
+            ],
+        },
+    )
+    stored = (await client.get(f"/v1/executions/{execution_id}/events")).json()[0]
+    assert datetime.fromisoformat(stored["timestamp"]) == sent

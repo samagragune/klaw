@@ -1,0 +1,78 @@
+# Full local stack: Postgres + Redis + backend + dashboard.
+#
+# Not exercised on the machine this project was built on (Docker was not
+# installed there), so treat it as a starting point rather than a verified
+# path. The application code is driver-agnostic: the same backend runs on
+# SQLite with an in-process bus, which is the documented zero-install route.
+#
+#   docker compose -f docker/docker-compose.yml up --build
+#
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: reliability
+      POSTGRES_PASSWORD: reliability
+      POSTGRES_DB: reliability
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reliability"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://reliability:reliability@postgres:5432/reliability
+      EVENT_BUS: redis
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      DEV_USER_EMAIL: ${DEV_USER_EMAIL:-dev@reliability.local}
+      DEV_SESSION_TOKEN: ${DEV_SESSION_TOKEN:-local-dev-token-change-me}
+      SUPERVISOR_LLM_PROVIDER: ${SUPERVISOR_LLM_PROVIDER:-none}
+      SUPERVISOR_LLM_API_KEY: ${SUPERVISOR_LLM_API_KEY:-}
+      SUPERVISOR_MODEL: ${SUPERVISOR_MODEL:-gemini-2.0-flash}
+      CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "8000:8000"
+    # Seed the dev user and an API key, then serve.
+    command: >
+      sh -c "python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  dashboard:
+    build:
+      context: ..
+      dockerfile: dashboard/Dockerfile
+      args:
+        NEXT_PUBLIC_RELIABILITY_API_URL: http://localhost:8000
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_RELIABILITY_API_URL: http://localhost:8000
+      NEXT_PUBLIC_RELIABILITY_TOKEN: ${DEV_SESSION_TOKEN:-local-dev-token-change-me}
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres-data:

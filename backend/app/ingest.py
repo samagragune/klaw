@@ -6,6 +6,7 @@ retry a batch after a network failure without corrupting counters.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +25,13 @@ from app.pricing import estimate_cost
 from app.schemas import EventIn
 
 logger = logging.getLogger(__name__)
+
+
+def _aware(value: datetime | None) -> datetime | None:
+    """SQLite hands back naive datetimes; normalise before comparing."""
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
 def _apply_event(execution: Execution, event: EventIn) -> None:
@@ -128,6 +136,12 @@ async def store_events(
         session.add(row)
         stored.append(row)
         _apply_event(execution, item)
+        previous = _aware(execution.last_event_at)
+        if previous is None or _aware(item.timestamp) > previous:
+            execution.last_event_at = item.timestamp
+
+    if stored:
+        execution.last_heartbeat_at = utcnow()
 
     return stored, duplicates
 

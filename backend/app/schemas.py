@@ -69,6 +69,8 @@ class ExecutionOut(ORMModel):
     task: str | None
     started_at: datetime
     completed_at: datetime | None
+    last_event_at: datetime | None
+    last_heartbeat_at: datetime | None
     event_count: int
     tool_call_count: int
     error_count: int

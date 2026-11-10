@@ -30,3 +30,6 @@ npm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
+
+# Next.js standalone build output
+dashboard/.next/

@@ -43,6 +43,10 @@ class Settings(BaseSettings):
 
     # How long a control long-poll request is held open before returning empty.
     control_poll_timeout_seconds: float = 25.0
+    # Silence (no events, no control polls) after which a running execution
+    # is presumed dead and closed as failed. Must comfortably exceed the
+    # SDK's poll interval.
+    stale_execution_seconds: float = 180.0
 
     @property
     def cors_origin_list(self) -> list[str]:

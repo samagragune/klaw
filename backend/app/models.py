@@ -27,8 +27,34 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import TypeDecorator
 
 from app.db import Base
+
+
+class UtcDateTime(TypeDecorator):
+    """A timestamp that is always timezone-aware UTC in Python.
+
+    SQLite has no timezone type and hands back naive datetimes, which would
+    otherwise be serialised without an offset - and a browser reads a bare
+    timestamp as local time, putting every event hours out. Normalising here
+    fixes the API, the detectors and the dashboard in one place.
+    """
+
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(self, value: datetime | None, dialect):  # noqa: ANN001
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    def process_result_value(self, value: datetime | None, dialect):  # noqa: ANN001
+        if value is None:
+            return None
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
 def _uuid() -> str:
@@ -41,7 +67,7 @@ def utcnow() -> datetime:
 
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, nullable=False
+        UtcDateTime, default=utcnow, nullable=False
     )
 
 
@@ -139,8 +165,8 @@ class ApiKey(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(120), nullable=False, default="default")
     key_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     prefix: Mapped[str] = mapped_column(String(16), nullable=False)
-    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    revoked_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
 
 class Agent(Base, TimestampMixin):
@@ -154,7 +180,7 @@ class Agent(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=AgentStatus.IDLE)
     description: Mapped[str | None] = mapped_column(Text)
     sdk_version: Mapped[str | None] = mapped_column(String(40))
-    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
     user: Mapped[User] = relationship(back_populates="agents")
     executions: Mapped[list["Execution"]] = relationship(back_populates="agent")
@@ -174,9 +200,14 @@ class Execution(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=ExecutionStatus.RUNNING)
     task: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, nullable=False
+        UtcDateTime, default=utcnow, nullable=False
     )
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    # Liveness. An agent proves it is alive two ways: by sending events, and
+    # by polling for control commands - the second keeps working while the
+    # execution is paused and emitting nothing.
+    last_event_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
     # Counters maintained incrementally as events arrive, so dashboard metrics
     # never require a scan over the event table.
@@ -223,7 +254,7 @@ class ExecutionEvent(Base):
     event_type: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
     payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, nullable=False
+        UtcDateTime, default=utcnow, nullable=False
     )
 
     execution: Mapped[Execution] = relationship(back_populates="events")
@@ -258,7 +289,7 @@ class Incident(Base, TimestampMixin):
 
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=IncidentStatus.OPEN)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+        UtcDateTime, default=utcnow, onupdate=utcnow, nullable=False
     )
 
 
@@ -278,7 +309,7 @@ class Policy(Base, TimestampMixin):
     )
     configuration: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+        UtcDateTime, default=utcnow, onupdate=utcnow, nullable=False
     )
 
 
@@ -302,9 +333,9 @@ class Intervention(Base, TimestampMixin):
     requested_by: Mapped[str] = mapped_column(String(20), nullable=False, default="user")
     parameters: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
 
-    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    delivered_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    applied_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
     # Verbatim runtime confirmation. Until this is populated, nothing in the
     # product may claim the intervention took effect.
     runtime_result: Mapped[dict | None] = mapped_column(JSON)
