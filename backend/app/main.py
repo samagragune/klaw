@@ -87,6 +87,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# Registered after CORS so it wraps it: CORS answers preflights itself.
+@app.middleware("http")
+async def private_network_access(request, call_next):
+    """Let a public HTTPS dashboard (e.g. on Vercel) call a supervisor running
+    on the operator's own machine. Chrome's Private Network Access asks the
+    local server to opt in on the preflight; CORS still decides which origins
+    may actually call."""
+    response = await call_next(request)
+    if request.method == "OPTIONS" and request.headers.get("access-control-request-private-network"):
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
+    return response
+
 app.include_router(agents.router)
 app.include_router(executions.router)
 app.include_router(control.router)
