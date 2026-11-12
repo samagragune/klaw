@@ -27,7 +27,17 @@ export default function LoginPage() {
       setToken(session.token);
       window.location.replace("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not sign in");
+      const message = err instanceof Error ? err.message : "Could not sign in";
+      if (message === "Failed to fetch" || message.includes("NetworkError")) {
+        const local = /localhost|127\.0\.0\.1|\[::1\]/.test(getApiUrl());
+        setError(
+          local
+            ? `Couldn't reach the supervisor at ${getApiUrl()}. Make sure it is running on this computer, and allow "access other apps and services on this device" when your browser asks (or in this site's settings, next to the address bar).`
+            : `Couldn't reach the supervisor at ${getApiUrl()}. Check the address below and that the supervisor is running.`,
+        );
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
     }

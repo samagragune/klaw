@@ -67,6 +67,10 @@ def main() -> int:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         context = browser.new_context(viewport={"width": 1440, "height": 1000})
+        # A public dashboard calling a supervisor on this machine needs Chrome's
+        # "local network access" permission - what a user grants by clicking
+        # Allow on the prompt.
+        context.grant_permissions(["local-network-access"], origin=args.dashboard)
         page = context.new_page()
         console: list[str] = []
         failed: list[str] = []
