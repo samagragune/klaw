@@ -568,3 +568,50 @@ async def test_redirect_reopens_the_task(client, monkeypatch):
     assert decision["action"] == "REDIRECT"
     [task] = (await client.get("/v1/tasks")).json()
     assert task["status"] == "running" and task["redirects"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Hosting: keepalive and hosted-Postgres URLs
+# ---------------------------------------------------------------------------
+
+async def test_neon_style_url_is_made_asyncpg_compatible():
+    from app.db import resolve_database
+
+    url, args = resolve_database(
+        "postgresql+asyncpg://u:p@ep-x.neon.tech/neondb?sslmode=require&channel_binding=require",
+        is_sqlite=False,
+    )
+    assert url == "postgresql+asyncpg://u:p@ep-x.neon.tech/neondb"
+    assert args == {"ssl": "require"}
+    assert resolve_database("postgresql+asyncpg://u:p@h/db", is_sqlite=False) == (
+        "postgresql+asyncpg://u:p@h/db", {})
+
+
+async def test_keepalive_pings_the_public_url_and_reports_on_health(client, monkeypatch):
+    import httpx
+
+    from app import keepalive
+
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return httpx.Response(200, json={"status": "ok"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        assert await keepalive.ping_once(http, "https://svc.onrender.com")
+    assert seen == ["https://svc.onrender.com/health?source=keepalive"]
+    monkeypatch.setattr(keepalive.status, "url", "https://svc.onrender.com")
+    body = (await client.get("/health")).json()
+    assert body["keepalive"]["enabled"] is True
+    assert body["keepalive"]["last_ok_seconds_ago"] is not None
+
+
+async def test_keepalive_is_off_without_a_public_url(monkeypatch):
+    from app import keepalive
+
+    monkeypatch.delenv("RENDER_EXTERNAL_URL", raising=False)
+    monkeypatch.setattr(keepalive.get_settings(), "keepalive_url", "")
+    assert keepalive.keepalive_url() is None
+    monkeypatch.setenv("RENDER_EXTERNAL_URL", "https://svc.onrender.com/")
+    assert keepalive.keepalive_url() == "https://svc.onrender.com"

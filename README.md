@@ -210,10 +210,12 @@ python integrations_tests/mixed_concurrency_live.py --project <project with hook
 
 ## Deployment
 
-Backend → Railway or Fly (`railway.json`, `fly.toml`, `backend/Dockerfile`;
-Postgres via the host's `DATABASE_URL`, `postgres://` URLs are accepted).
-Dashboard → Vercel (root `dashboard/`, env `NEXT_PUBLIC_RELIABILITY_API_URL`).
-Step-by-step in [docs/DEPLOY.md](docs/DEPLOY.md).
+Free stack: backend → Render (`render.yaml`), Postgres → Neon, dashboard →
+Vercel (root `dashboard/`, env `NEXT_PUBLIC_RELIABILITY_API_URL`). Render's free
+tier sleeps when idle, so the backend pings itself and a GitHub Actions
+workflow (`.github/workflows/keepalive.yml`) wakes it after restarts.
+Railway and Fly configs are included too. Step-by-step in
+[docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Configuration
 
@@ -230,6 +232,7 @@ Step-by-step in [docs/DEPLOY.md](docs/DEPLOY.md).
 | `SUPERVISOR_LLM_API_KEY` | — | falls back to `GEMINI_API_KEY` for gemini |
 | `STALE_EXECUTION_SECONDS` | 180 | heartbeat platforms: silence ⇒ failed |
 | `INACTIVE_SESSION_SECONDS` | 1800 | hook platforms: silence ⇒ inactive (never failed) |
+| `KEEPALIVE_URL` / `KEEPALIVE_INTERVAL_SECONDS` | Render's URL / 600 | self-ping so a free host never idles |
 
 ## Known limits
 

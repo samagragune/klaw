@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { API_URL, auth, setToken } from "@/lib/api";
 import { Button, Card, Input } from "@/components/ui";
+import { BackendStatus } from "@/components/backend-status";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -31,7 +32,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-screen place-items-center bg-bg p-4">
+    <div className="min-h-screen bg-bg">
+      <BackendStatus />
+    <div className="grid min-h-[90vh] place-items-center p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex items-center gap-2">
           <div className="grid size-7 place-items-center rounded bg-[var(--accent)] text-xs font-bold text-white">
@@ -96,6 +99,7 @@ export default function LoginPage() {
         </Card>
         <p className="mt-4 text-center text-[11px] text-faint">Backend: {API_URL}</p>
       </div>
+    </div>
     </div>
   );
 }

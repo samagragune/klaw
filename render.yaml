@@ -1,0 +1,35 @@
+# Render blueprint: New -> Blueprint -> pick this repository.
+# Database: a free Neon Postgres (persistent); paste its connection string as
+# DATABASE_URL when Render asks. Free web services sleep after ~15 min idle;
+# the backend pings itself (RENDER_EXTERNAL_URL) and
+# .github/workflows/keepalive.yml wakes it after restarts.
+services:
+  - type: web
+    name: reliability-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: RELIABILITY_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SUPERVISOR_LLM_PROVIDER
+        value: gemini
+      - key: SUPERVISOR_MODEL
+        value: gemini-3.5-flash
+      - key: SUPERVISOR_FAST_MODEL
+        value: gemini-3.5-flash-lite
+      - key: EVENT_BUS
+        value: memory
+      - key: KEEPALIVE_INTERVAL_SECONDS
+        value: "600"

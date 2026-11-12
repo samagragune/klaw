@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
+from typing import Any
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -27,6 +29,7 @@ from app.routers import (
     supervisor,
     ws,
 )
+from app.keepalive import run_keepalive, status as keepalive_status
 from app.sweeper import run_sweeper
 
 logging.basicConfig(
@@ -51,6 +54,7 @@ async def lifespan(app: FastAPI):
 
     stop = asyncio.Event()
     sweeper = asyncio.create_task(run_sweeper(stop))
+    keeper = asyncio.create_task(run_keepalive(stop))
     logger.info(
         "reliability backend ready | db=%s bus=%s evaluator=%s",
         "sqlite" if settings.is_sqlite else "postgres",
@@ -61,6 +65,7 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         stop.set()
+        keeper.cancel()
         sweeper.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await sweeper
@@ -97,6 +102,23 @@ app.include_router(approvals.router)
 app.include_router(analytics.router)
 
 
+_STARTED = time.time()
+
+
 @app.get("/health", tags=["meta"])
-async def health() -> dict[str, str]:
-    return {"status": "ok", "service": "reliability-backend", "version": "0.1.0"}
+async def health() -> dict[str, Any]:
+    """Liveness for hosts and pingers. Cheap: touches no database."""
+    return {
+        "status": "ok",
+        "service": "reliability-backend",
+        "version": "0.2.0",
+        "uptime_seconds": round(time.time() - _STARTED),
+        "keepalive": {
+            "enabled": keepalive_status.url is not None,
+            "interval_seconds": keepalive_status.interval or None,
+            "last_ok_seconds_ago": round(time.time() - keepalive_status.last_ok_at)
+            if keepalive_status.last_ok_at
+            else None,
+            "last_error": keepalive_status.last_error,
+        },
+    }

@@ -23,6 +23,7 @@ import { useLive } from "@/lib/live";
 import { useAsync } from "@/lib/hooks";
 import { api, clearToken } from "@/lib/api";
 import { cn } from "./ui";
+import { BackendStatus } from "./backend-status";
 
 const NAV_GROUPS = [
   {
@@ -162,7 +163,10 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1">{children}</main>
+      <main className="min-w-0 flex-1">
+        <BackendStatus />
+        {children}
+      </main>
     </div>
   );
 }

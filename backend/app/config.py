@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
 
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    #: Public URL to ping so a free-tier host never idles (see keepalive.py).
+    #: On Render this falls back to RENDER_EXTERNAL_URL automatically.
+    keepalive_url: str = ""
+    #: Render sleeps after ~15 min idle; 10 min keeps a safe margin.
+    keepalive_interval_seconds: float = 600.0
+
     #: Open sign-up on the dashboard. Turn off on a private deployment once
     #: the accounts you need exist.
     allow_signup: bool = True
