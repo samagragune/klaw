@@ -1,0 +1,6 @@
+# Only the dashboard is deployed to Vercel.
+/*
+!/dashboard
+/dashboard/node_modules
+/dashboard/.next
+/dashboard/.env*

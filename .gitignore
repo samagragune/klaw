@@ -33,3 +33,9 @@ Thumbs.db
 
 # Next.js standalone build output
 dashboard/.next/
+
+# Vercel CLI link (local)
+.vercel
+
+.vercel
+.env*
