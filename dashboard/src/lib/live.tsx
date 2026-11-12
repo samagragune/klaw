@@ -18,7 +18,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { API_URL, getToken } from "./api";
+import { getApiUrl, getToken } from "./api";
 
 export type LiveMessage =
   | { type: "connected"; user_id: string }
@@ -74,7 +74,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
         setStatus("unauthorized");
         return;
       }
-      const url = `${API_URL.replace(/^http/, "ws")}/v1/ws?token=${encodeURIComponent(token)}`;
+      const url = `${getApiUrl().replace(/^http/, "ws")}/v1/ws?token=${encodeURIComponent(token)}`;
       const ws = new WebSocket(url);
       socket.current = ws;
       setStatus("connecting");

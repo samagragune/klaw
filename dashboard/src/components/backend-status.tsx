@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_URL } from "@/lib/api";
+import { getApiUrl } from "@/lib/api";
 
 type State = "ok" | "waking" | "down";
 
 /**
- * Free hosting puts the backend to sleep when idle; the first request then
- * waits for a cold start. Say so, instead of letting the page look broken.
- * Renders nothing while the backend answers promptly.
+ * Tells the operator when the supervisor backend is slow or unreachable
+ * (stopped, the machine running it is off, a tunnel restarted), instead of
+ * letting pages look broken. Renders nothing while it answers promptly.
  */
 export function BackendStatus() {
   const [state, setState] = useState<State>("ok");
@@ -20,7 +20,7 @@ export function BackendStatus() {
     const check = async () => {
       const slow = setTimeout(() => !cancelled && setState("waking"), 2500);
       try {
-        const response = await fetch(`${API_URL}/health`, { cache: "no-store" });
+        const response = await fetch(`${getApiUrl()}/health`, { cache: "no-store" });
         if (!cancelled) setState(response.ok ? "ok" : "down");
       } catch {
         if (!cancelled) setState("down");
@@ -49,8 +49,8 @@ export function BackendStatus() {
     >
       <span className="pulse size-1.5 rounded-full bg-current" />
       {state === "waking"
-        ? "Waking the supervisor — free hosting sleeps when idle; this takes up to a minute. Agents keep working meanwhile."
-        : "Can't reach the supervisor right now. Retrying every 30 seconds; agents keep working and their events are queued."}
+        ? "The supervisor is responding slowly…"
+        : `Can't reach the supervisor at ${getApiUrl()}. Is it running? Retrying every 30 seconds — agents keep working and queue their events.`}
     </div>
   );
 }

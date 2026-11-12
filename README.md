@@ -210,12 +210,14 @@ python integrations_tests/mixed_concurrency_live.py --project <project with hook
 
 ## Deployment
 
-Free stack: backend → Render (`render.yaml`), Postgres → Neon, dashboard →
-Vercel (root `dashboard/`, env `NEXT_PUBLIC_RELIABILITY_API_URL`). Render's free
-tier sleeps when idle, so the backend pings itself and a GitHub Actions
-workflow (`.github/workflows/keepalive.yml`) wakes it after restarts.
-Railway and Fly configs are included too. Step-by-step in
-[docs/DEPLOY.md](docs/DEPLOY.md).
+No database service is needed: the supervisor keeps everything in one SQLite
+file. The free setup is the dashboard on Vercel (root `dashboard/`) and the
+supervisor on your own machine — reachable from the site directly on
+`localhost` or through a free tunnel; the sign-in page lets you point the
+dashboard at any supervisor address without rebuilding. Step-by-step in
+[docs/DEPLOY.md](docs/DEPLOY.md). For always-on hosting, `backend/Dockerfile`,
+`railway.json` and `fly.toml` are included, and hosted Postgres URLs work
+as given.
 
 ## Configuration
 
@@ -232,7 +234,7 @@ Railway and Fly configs are included too. Step-by-step in
 | `SUPERVISOR_LLM_API_KEY` | — | falls back to `GEMINI_API_KEY` for gemini |
 | `STALE_EXECUTION_SECONDS` | 180 | heartbeat platforms: silence ⇒ failed |
 | `INACTIVE_SESSION_SECONDS` | 1800 | hook platforms: silence ⇒ inactive (never failed) |
-| `KEEPALIVE_URL` / `KEEPALIVE_INTERVAL_SECONDS` | Render's URL / 600 | self-ping so a free host never idles |
+| `KEEPALIVE_URL` / `KEEPALIVE_INTERVAL_SECONDS` | off / 600 | optional self-ping, for hosts that sleep when idle |
 
 ## Known limits
 

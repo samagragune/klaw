@@ -9,9 +9,8 @@ While the process is up, this task requests the service's *public* URL every
 ``KEEPALIVE_INTERVAL_SECONDS``. Going out through the host's edge and back in
 counts as inbound traffic, so the idle timer never fires.
 
-A process cannot wake itself once asleep - after a redeploy or a platform
-restart it is the external pinger (``.github/workflows/keepalive.yml``) that
-brings it back. The two together keep the service warm.
+A process cannot wake itself once asleep; on such hosts pair this with any
+external uptime pinger. Off unless a public URL is configured.
 
 Enabled when a public URL is known: ``KEEPALIVE_URL``, or Render's own
 ``RENDER_EXTERNAL_URL`` (set automatically on Render). Off locally.

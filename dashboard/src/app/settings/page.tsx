@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
-import { api, API_URL, clearToken } from "@/lib/api";
+import { api, getApiUrl, clearToken } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
 import { relativeTime } from "@/lib/format";
 import { PageBody, PageHeader } from "@/components/shell";
@@ -26,7 +26,7 @@ const SNIPPET = `from reliability import Supervisor
 supervisor = Supervisor(
     api_key="YOUR_API_KEY",      # or set RELIABILITY_API_KEY
     agent_id="research-agent",   # stable name; registration is idempotent
-    api_url="${API_URL}",
+    api_url="${getApiUrl()}",
 )
 
 @supervisor.monitor(task="Research AI startups")
@@ -96,7 +96,7 @@ export default function SettingsPage() {
             ) : (
               <KeyValue
                 rows={[
-                  ["Backend", <Mono key="url">{API_URL}</Mono>],
+                  ["Backend", <Mono key="url">{getApiUrl()}</Mono>],
                   ["Environment", config.data?.environment ?? "—"],
                   ["Database", config.data?.database ?? "—"],
                   ["Event bus", config.data?.event_bus ?? "—"],

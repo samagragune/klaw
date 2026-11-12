@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { API_URL, auth, setToken } from "@/lib/api";
+import { getApiUrl, setApiUrl, auth, setToken } from "@/lib/api";
 import { Button, Card, Input } from "@/components/ui";
 import { BackendStatus } from "@/components/backend-status";
 
@@ -12,6 +12,8 @@ export default function LoginPage() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingBackend, setEditingBackend] = useState(false);
+  const [backend, setBackend] = useState(() => getApiUrl());
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -97,7 +99,33 @@ export default function LoginPage() {
             {mode === "signin" ? "No account? Create one" : "Have an account? Sign in"}
           </button>
         </Card>
-        <p className="mt-4 text-center text-[11px] text-faint">Backend: {API_URL}</p>
+        <div className="mt-4 text-center text-[11px] text-faint">
+          {editingBackend ? (
+            <form
+              className="flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setApiUrl(backend);
+                window.location.reload();
+              }}
+            >
+              <Input
+                autoFocus
+                value={backend}
+                onChange={(e) => setBackend(e.target.value)}
+                placeholder="https://… or http://localhost:8000"
+              />
+              <Button type="submit">Use</Button>
+            </form>
+          ) : (
+            <>
+              Supervisor: <span className="font-mono">{getApiUrl()}</span>{" "}
+              <button type="button" className="underline hover:text-ink" onClick={() => setEditingBackend(true)}>
+                change
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
     </div>

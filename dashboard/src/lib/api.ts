@@ -5,8 +5,31 @@
  * one in the same commit - the contract is only useful if both ends agree.
  */
 
-export const API_URL =
+const DEFAULT_API_URL =
   process.env.NEXT_PUBLIC_RELIABILITY_API_URL ?? "http://127.0.0.1:8000";
+const API_URL_KEY = "reliability.api_url";
+
+/**
+ * The supervisor backend this browser talks to. Defaults to the build-time
+ * value; can be changed on the sign-in page (for example to a backend running
+ * on your own machine behind a tunnel) without rebuilding the dashboard.
+ * Deliberately not settable from a URL parameter: a crafted link could
+ * otherwise send someone's password to a server they did not choose.
+ */
+export function getApiUrl(): string {
+  if (typeof window === "undefined") return DEFAULT_API_URL;
+  try {
+    return window.localStorage.getItem(API_URL_KEY) || DEFAULT_API_URL;
+  } catch {
+    return DEFAULT_API_URL;
+  }
+}
+
+export function setApiUrl(url: string) {
+  const clean = url.trim().replace(/\/+$/, "");
+  if (!clean || clean === DEFAULT_API_URL) window.localStorage.removeItem(API_URL_KEY);
+  else window.localStorage.setItem(API_URL_KEY, clean);
+}
 
 const TOKEN_KEY = "reliability.token";
 
@@ -51,7 +74,7 @@ function redirectToLogin() {
 
 /** Unauthenticated call (sign-in, sign-up). */
 async function publicRequest<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${getApiUrl()}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -72,7 +95,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError("Not signed in", 401);
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${getApiUrl()}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",

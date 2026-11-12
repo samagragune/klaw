@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { API_URL, api, type Integration, type Platform } from "@/lib/api";
+import { getApiUrl, api, type Integration, type Platform } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
 import { relativeTime } from "@/lib/format";
 import { PageBody, PageHeader } from "@/components/shell";
@@ -18,7 +18,7 @@ function setupSteps(platform: Platform, key: string): { title: string; body: str
         title: "Run this in the project you want supervised (Python 3.9+):",
         body:
           `pip install "git+${REPO}#subdirectory=companion" && ` +
-          `reliability-companion setup --api-url ${API_URL} --key ${key}`,
+          `reliability-companion setup --api-url ${getApiUrl()} --key ${key}`,
       },
       {
         title: "That's it. It shows the change to .claude/settings.json and asks before writing. Options:",
@@ -37,7 +37,7 @@ function setupSteps(platform: Platform, key: string): { title: string; body: str
       },
       {
         title: "2. Set two environment variables",
-        body: `RELIABILITY_API_URL=${API_URL}\nRELIABILITY_INTEGRATION_KEY=${key}`,
+        body: `RELIABILITY_API_URL=${getApiUrl()}\nRELIABILITY_INTEGRATION_KEY=${key}`,
       },
       {
         title: "3. Change one line: Runner.run → supervisor.run",
@@ -52,7 +52,7 @@ result = await supervisor.run(triage_agent, user_input)`,
     { title: "1. Install", body: `pip install "git+${REPO}#subdirectory=sdk"` },
     {
       title: "2. Use the key",
-      body: `from reliability import Supervisor\nsupervisor = Supervisor(api_key="${key}", agent_id="my-agent", api_url="${API_URL}")`,
+      body: `from reliability import Supervisor\nsupervisor = Supervisor(api_key="${key}", agent_id="my-agent", api_url="${getApiUrl()}")`,
     },
   ];
 }
