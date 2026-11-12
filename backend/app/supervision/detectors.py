@@ -1,12 +1,17 @@
-"""Deterministic detectors.
+"""Deterministic detectors (loop detector, progress detector, limits).
 
-These are pure functions over stored execution state. They carry no LLM
-dependency, which is why the product can detect loops, runaway budgets and
-repeated failures with no API key configured at all.
+Pure functions over stored events. No LLM is involved, which is why loops,
+runaway budgets and repeated failures are caught with no API key at all.
 
-Every detection carries ``evidence`` assembled from real stored events -
-event ids, sequence numbers and timestamps - so an incident can always be
-traced back to the trace rows that produced it.
+Scope: limits that describe *one objective* (loops, repeated failures,
+tool-call budget, duration, stalls) are evaluated over the current task's
+events. Spend limits (tokens, cost) are evaluated over the whole session.
+For single-task platforms the two scopes coincide; for Claude Code - where a
+session can span hours of unrelated prompts - this is what keeps an hour-old
+`git status` from counting toward a loop in the current prompt.
+
+Every detection carries evidence assembled from stored events - ids, sequence
+numbers, timestamps - so it can always be traced back to the trace rows.
 """
 from __future__ import annotations
 
@@ -15,7 +20,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app import events as E
-from app.models import Execution, ExecutionEvent, ExecutionStatus, IncidentSeverity
+from app.models import Execution, ExecutionEvent, ExecutionStatus, IncidentSeverity, Task
 
 
 @dataclass
@@ -25,14 +30,17 @@ class Detection:
     title: str
     description: str
     evidence: dict[str, Any] = field(default_factory=dict)
-    #: Human-readable remediation. Shown in assist mode, executed in autopilot.
+    #: Human-readable remediation. Shown in recommend mode.
     recommended_action: str | None = None
-    #: Control action autopilot would take, if the policy permits it.
+    #: Runtime action control mode may take, if the policy permits it and the
+    #: platform supports it.
     suggested_intervention: str | None = None
+    #: Text that can be handed to the agent itself as corrective feedback.
+    agent_feedback: str | None = None
+    task_id: str | None = None
 
 
 def _as_aware(value: datetime) -> datetime:
-    """SQLite hands back naive datetimes; normalise before arithmetic."""
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
@@ -45,6 +53,57 @@ def _event_ref(event: ExecutionEvent) -> dict[str, Any]:
     }
 
 
+def _tool_calls(events: list[ExecutionEvent]) -> list[dict[str, Any]]:
+    """Pair starts with their outcome via ``tool_call_id``."""
+    calls: list[dict[str, Any]] = []
+    by_id: dict[str, dict[str, Any]] = {}
+    for event in events:
+        payload = event.payload or {}
+        if event.event_type == E.TOOL_CALL_STARTED:
+            call = {
+                "event": event,
+                "tool": str(payload.get("tool_name", "unknown")),
+                "args_fp": str(payload.get("args_fingerprint", "")),
+                "result_fp": None,
+                "outcome": None,
+            }
+            calls.append(call)
+            if payload.get("tool_call_id"):
+                by_id[str(payload["tool_call_id"])] = call
+        elif event.event_type in (E.TOOL_CALL_COMPLETED, E.TOOL_CALL_FAILED):
+            call = by_id.get(str(payload.get("tool_call_id", "")))
+            if call is not None:
+                call["outcome"] = event.event_type
+                call["result_fp"] = payload.get("result_fingerprint") or (
+                    f"error:{payload.get('error_type') or payload.get('error')}"
+                    if event.event_type == E.TOOL_CALL_FAILED
+                    else None
+                )
+    return calls
+
+
+def loop_groups(events: list[ExecutionEvent]) -> dict[tuple[str, str, str], list[dict]]:
+    """Group tool calls that are indistinguishable: same tool, same arguments
+    and - where the platform reports it - the same result.
+
+    Requiring an identical result is what separates a loop from legitimate
+    repetition: re-reading a file after editing it, or re-running tests after
+    a fix, repeats the call but changes the answer. Calls whose result is not
+    known (platform does not fingerprint results, or still running) compare on
+    arguments alone.
+    """
+    calls = _tool_calls(events)
+    platform_reports_results = any(c["result_fp"] for c in calls)
+    groups: dict[tuple[str, str, str], list[dict]] = {}
+    for call in calls:
+        if platform_reports_results and call["outcome"] is None:
+            # Still running; it is judged once its result arrives.
+            continue
+        key = (call["tool"], call["args_fp"], call["result_fp"] or "*")
+        groups.setdefault(key, []).append(call)
+    return groups
+
+
 # ---------------------------------------------------------------------------
 # Detectors
 # ---------------------------------------------------------------------------
@@ -52,185 +111,60 @@ def _event_ref(event: ExecutionEvent) -> dict[str, Any]:
 def detect_repeated_tool_calls(
     execution: Execution, events: list[ExecutionEvent], config: dict[str, Any]
 ) -> Detection | None:
-    """Identical tool invocations repeated past the configured threshold.
-
-    The SDK sends ``args_fingerprint`` (a hash of canonicalised arguments) with
-    every ``tool.started`` event, so this works even in metadata-only mode
-    where raw arguments are never transmitted.
-    """
     threshold = config.get("repeated_tool_call_threshold")
     if not threshold:
         return None
 
-    groups: dict[tuple[str, str], list[ExecutionEvent]] = {}
-    for event in events:
-        if event.event_type != E.TOOL_STARTED:
-            continue
-        payload = event.payload or {}
-        tool = str(payload.get("tool_name", "unknown"))
-        fingerprint = str(payload.get("args_fingerprint", ""))
-        groups.setdefault((tool, fingerprint), []).append(event)
-
-    worst: tuple[tuple[str, str], list[ExecutionEvent]] | None = None
-    for key, group in groups.items():
-        if len(group) >= threshold and (worst is None or len(group) > len(worst[1])):
-            worst = (key, group)
+    groups = loop_groups(events)
+    worst = max(
+        (g for g in groups.items() if len(g[1]) >= threshold),
+        key=lambda kv: len(kv[1]),
+        default=None,
+    )
     if worst is None:
         return None
 
-    (tool, fingerprint), group = worst
+    (tool, fingerprint, result_fp), group = worst
     count = len(group)
-    severity = (
-        IncidentSeverity.CRITICAL if count >= threshold * 2 else IncidentSeverity.HIGH
-    )
-    first = _as_aware(group[0].timestamp)
-    last = _as_aware(group[-1].timestamp)
+    severity = IncidentSeverity.CRITICAL if count >= threshold * 2 else IncidentSeverity.HIGH
+    first = _as_aware(group[0]["event"].timestamp)
+    last = _as_aware(group[-1]["event"].timestamp)
+    same_result = result_fp != "*"
 
     return Detection(
         category="repeated_tool_call",
         severity=severity,
-        title=f"Tool '{tool}' called {count} times with identical arguments",
+        title=f"'{tool}' called {count} times with identical arguments"
+        + (" and identical results" if same_result else ""),
         description=(
             f"The agent invoked '{tool}' {count} times with the same argument "
-            f"fingerprint between {first.isoformat()} and {last.isoformat()}. "
-            f"The configured threshold is {threshold}. Repeating an identical "
-            "call without a changing result is the signature of a non-progressing loop."
+            f"fingerprint between {first.isoformat()} and {last.isoformat()}"
+            + (", receiving the same result every time" if same_result else "")
+            + f". The configured threshold is {threshold}. Repeating a call that "
+            "returns nothing new is the signature of a non-progressing loop."
         ),
         evidence={
             "tool_name": tool,
             "args_fingerprint": fingerprint,
+            "result_fingerprint": result_fp if same_result else None,
             "occurrences": count,
             "threshold": threshold,
             "first_seen": first.isoformat(),
             "last_seen": last.isoformat(),
             "window_seconds": round((last - first).total_seconds(), 3),
-            "events": [_event_ref(e) for e in group[:20]],
+            "events": [_event_ref(c["event"]) for c in group[:20]],
         },
         recommended_action=(
-            f"Pause the execution and inspect why '{tool}' returns a result the agent "
-            "does not act on. Consider a per-tool call budget or a de-duplication guard."
+            f"Inspect why '{tool}' returns a result the agent does not act on. "
+            "Consider a per-tool call budget or a de-duplication guard."
         ),
         suggested_intervention="pause",
-    )
-
-
-def detect_execution_timeout(
-    execution: Execution, events: list[ExecutionEvent], config: dict[str, Any]
-) -> Detection | None:
-    limit = config.get("max_duration_seconds")
-    if not limit or execution.status in ExecutionStatus.TERMINAL:
-        return None
-
-    started = _as_aware(execution.started_at)
-    elapsed = (datetime.now(timezone.utc) - started).total_seconds()
-    if elapsed <= limit:
-        return None
-
-    return Detection(
-        category="execution_timeout",
-        severity=IncidentSeverity.HIGH,
-        title=f"Execution exceeded its {limit}s duration limit",
-        description=(
-            f"The execution has been {execution.status} for {elapsed:.0f}s, past the "
-            f"configured limit of {limit}s, with {execution.tool_call_count} tool calls "
-            f"and {execution.event_count} events recorded."
+        agent_feedback=(
+            f"You have called {tool} {count} times with exactly the same input"
+            + (" and got the same result each time" if same_result else "")
+            + ". Repeating it will not produce new information. Change your "
+            "approach or report what is blocking you."
         ),
-        evidence={
-            "elapsed_seconds": round(elapsed, 1),
-            "limit_seconds": limit,
-            "started_at": started.isoformat(),
-            "status": execution.status,
-            "tool_calls": execution.tool_call_count,
-            "last_event": _event_ref(events[-1]) if events else None,
-        },
-        recommended_action="Cancel the execution, or raise the duration limit if long runs are expected.",
-        suggested_intervention="cancel",
-    )
-
-
-def detect_tool_call_limit(
-    execution: Execution, events: list[ExecutionEvent], config: dict[str, Any]
-) -> Detection | None:
-    limit = config.get("max_tool_calls")
-    if not limit or execution.tool_call_count <= limit:
-        return None
-
-    return Detection(
-        category="tool_call_limit",
-        severity=IncidentSeverity.HIGH,
-        title=f"Execution exceeded its {limit} tool-call budget",
-        description=(
-            f"{execution.tool_call_count} tool calls have been recorded against a "
-            f"configured maximum of {limit}."
-        ),
-        evidence={
-            "tool_calls": execution.tool_call_count,
-            "limit": limit,
-            "events": [_event_ref(e) for e in events if e.event_type == E.TOOL_STARTED][-10:],
-        },
-        recommended_action="Pause and review the plan the agent is executing.",
-        suggested_intervention="pause",
-    )
-
-
-def detect_token_budget(
-    execution: Execution, events: list[ExecutionEvent], config: dict[str, Any]
-) -> Detection | None:
-    limit = config.get("max_tokens")
-    if not limit or execution.token_usage <= limit:
-        return None
-
-    return Detection(
-        category="token_budget",
-        severity=IncidentSeverity.HIGH,
-        title=f"Execution exceeded its {limit:,} token budget",
-        description=(
-            f"{execution.token_usage:,} tokens consumed "
-            f"({execution.prompt_tokens:,} prompt / {execution.completion_tokens:,} completion) "
-            f"against a configured limit of {limit:,}."
-        ),
-        evidence={
-            "token_usage": execution.token_usage,
-            "prompt_tokens": execution.prompt_tokens,
-            "completion_tokens": execution.completion_tokens,
-            "limit": limit,
-            "llm_calls": sum(1 for e in events if e.event_type == E.LLM_COMPLETED),
-        },
-        recommended_action="Pause the execution and review prompt size or retry behaviour.",
-        suggested_intervention="pause",
-    )
-
-
-def detect_cost_budget(
-    execution: Execution, events: list[ExecutionEvent], config: dict[str, Any]
-) -> Detection | None:
-    limit = config.get("max_cost_usd")
-    if not limit or execution.estimated_cost is None or execution.estimated_cost <= limit:
-        return None
-
-    unpriced = (execution.extra or {}).get("unpriced_models", [])
-    return Detection(
-        category="cost_budget",
-        severity=IncidentSeverity.HIGH,
-        title=f"Estimated cost ${execution.estimated_cost:.4f} exceeded the ${limit} limit",
-        description=(
-            f"Estimated spend for this execution is ${execution.estimated_cost:.4f}, "
-            f"above the configured limit of ${limit}."
-            + (
-                f" Note: {len(unpriced)} model(s) had no known price and are excluded "
-                "from this figure, so actual spend is higher."
-                if unpriced
-                else ""
-            )
-        ),
-        evidence={
-            "estimated_cost_usd": execution.estimated_cost,
-            "limit_usd": limit,
-            "token_usage": execution.token_usage,
-            "unpriced_models": unpriced,
-        },
-        recommended_action="Pause the execution and review the model or token budget.",
-        suggested_intervention="pause",
     )
 
 
@@ -243,10 +177,13 @@ def detect_repeated_errors(
 
     groups: dict[tuple[str, str], list[ExecutionEvent]] = {}
     for event in events:
-        if event.event_type not in (E.TOOL_FAILED, E.LLM_FAILED):
-            continue
         payload = event.payload or {}
-        target = str(payload.get("tool_name") or payload.get("model") or "unknown")
+        if event.event_type == E.TOOL_CALL_FAILED:
+            target = str(payload.get("tool_name") or "unknown")
+        elif E.is_model_error(event.event_type, payload):
+            target = str(payload.get("model") or "model")
+        else:
+            continue
         error_type = str(payload.get("error_type") or "error")
         groups.setdefault((target, error_type), []).append(event)
 
@@ -274,28 +211,211 @@ def detect_repeated_errors(
             "events": [_event_ref(e) for e in group[:20]],
         },
         recommended_action=(
-            f"Pause and fix '{target}', or add a failure budget so the agent stops "
-            "retrying a dependency that is down."
+            f"Fix '{target}', or add a failure budget so the agent stops retrying "
+            "a dependency that is down."
         ),
+        suggested_intervention="pause",
+        agent_feedback=(
+            f"{target} has now failed {len(group)} times with the same error "
+            f"({error_type}). Retrying is not working; try a different approach "
+            "or stop and report the failure."
+        ),
+    )
+
+
+def detect_tool_call_limit(
+    execution: Execution, events: list[ExecutionEvent], config: dict[str, Any]
+) -> Detection | None:
+    limit = config.get("max_tool_calls")
+    starts = [e for e in events if e.event_type == E.TOOL_CALL_STARTED]
+    if not limit or len(starts) <= limit:
+        return None
+    return Detection(
+        category="tool_call_limit",
+        severity=IncidentSeverity.HIGH,
+        title=f"Task exceeded its {limit} tool-call budget",
+        description=f"{len(starts)} tool calls recorded against a configured maximum of {limit}.",
+        evidence={
+            "tool_calls": len(starts),
+            "limit": limit,
+            "events": [_event_ref(e) for e in starts[-10:]],
+        },
+        recommended_action="Review the plan the agent is executing.",
         suggested_intervention="pause",
     )
 
 
-ALL_DETECTORS = (
-    detect_repeated_tool_calls,
-    detect_execution_timeout,
-    detect_tool_call_limit,
-    detect_token_budget,
-    detect_cost_budget,
-    detect_repeated_errors,
-)
+def detect_execution_timeout(
+    execution: Execution,
+    events: list[ExecutionEvent],
+    config: dict[str, Any],
+    task: Task | None = None,
+) -> Detection | None:
+    limit = config.get("max_duration_seconds")
+    if not limit or execution.status not in (ExecutionStatus.RUNNING, ExecutionStatus.PAUSED):
+        return None
+    if task is not None and task.completed_at is not None:
+        return None
+
+    started = _as_aware(task.started_at if task is not None else execution.started_at)
+    elapsed = (datetime.now(timezone.utc) - started).total_seconds()
+    if elapsed <= limit:
+        return None
+
+    scope = "task" if task is not None else "execution"
+    return Detection(
+        category="execution_timeout",
+        severity=IncidentSeverity.HIGH,
+        title=f"The {scope} exceeded its {limit}s duration limit",
+        description=(
+            f"The current {scope} has been running for {elapsed:.0f}s, past the "
+            f"configured limit of {limit}s."
+        ),
+        evidence={
+            "elapsed_seconds": round(elapsed, 1),
+            "limit_seconds": limit,
+            "started_at": started.isoformat(),
+            "status": execution.status,
+            "last_event": _event_ref(events[-1]) if events else None,
+        },
+        recommended_action="Stop it, or raise the duration limit if long runs are expected.",
+        suggested_intervention="cancel",
+    )
+
+
+def detect_stall(
+    execution: Execution,
+    events: list[ExecutionEvent],
+    config: dict[str, Any],
+    task: Task | None = None,
+) -> Detection | None:
+    """Progress detector: a running task that has gone quiet.
+
+    A tool call still in flight is not a stall - a long build or test run is
+    legitimate - so only silence with nothing outstanding counts.
+    """
+    limit = config.get("stall_seconds")
+    if not limit or execution.status != ExecutionStatus.RUNNING or not events:
+        return None
+    if task is not None and task.completed_at is not None:
+        return None
+    in_flight = {
+        (e.payload or {}).get("tool_call_id")
+        for e in events
+        if e.event_type == E.TOOL_CALL_STARTED
+    } - {
+        (e.payload or {}).get("tool_call_id")
+        for e in events
+        if e.event_type in (E.TOOL_CALL_COMPLETED, E.TOOL_CALL_FAILED, E.TOOL_CALL_BLOCKED)
+    }
+    in_flight.discard(None)
+    if in_flight:
+        return None
+    last = _as_aware(events[-1].timestamp)
+    silent = (datetime.now(timezone.utc) - last).total_seconds()
+    if silent <= limit:
+        return None
+    return Detection(
+        category="stalled",
+        severity=IncidentSeverity.MEDIUM,
+        title=f"No progress for {silent / 60:.0f} minutes",
+        description=(
+            f"The task is marked running, but nothing has happened for {silent:.0f}s "
+            f"(threshold {limit}s) and no tool call is outstanding."
+        ),
+        evidence={
+            "silent_seconds": round(silent, 1),
+            "threshold_seconds": limit,
+            "last_event": _event_ref(events[-1]),
+        },
+        recommended_action="Check whether the agent is waiting on input or has hung.",
+    )
+
+
+def detect_token_budget(
+    execution: Execution, events: list[ExecutionEvent], config: dict[str, Any]
+) -> Detection | None:
+    limit = config.get("max_tokens")
+    if not limit or execution.token_usage <= limit:
+        return None
+    return Detection(
+        category="token_budget",
+        severity=IncidentSeverity.HIGH,
+        title=f"Session exceeded its {limit:,} token budget",
+        description=(
+            f"{execution.token_usage:,} tokens consumed "
+            f"({execution.prompt_tokens:,} prompt / {execution.completion_tokens:,} completion) "
+            f"against a configured limit of {limit:,}."
+        ),
+        evidence={
+            "token_usage": execution.token_usage,
+            "prompt_tokens": execution.prompt_tokens,
+            "completion_tokens": execution.completion_tokens,
+            "limit": limit,
+            "model_calls": sum(1 for e in events if e.event_type == E.MODEL_CALL),
+        },
+        recommended_action="Review prompt size or retry behaviour.",
+        suggested_intervention="pause",
+    )
+
+
+def detect_cost_budget(
+    execution: Execution, events: list[ExecutionEvent], config: dict[str, Any]
+) -> Detection | None:
+    limit = config.get("max_cost_usd")
+    if not limit or execution.estimated_cost is None or execution.estimated_cost <= limit:
+        return None
+    unpriced = (execution.extra or {}).get("unpriced_models", [])
+    return Detection(
+        category="cost_budget",
+        severity=IncidentSeverity.HIGH,
+        title=f"Estimated cost ${execution.estimated_cost:.4f} exceeded the ${limit} limit",
+        description=(
+            f"Estimated spend for this session is ${execution.estimated_cost:.4f}, "
+            f"above the configured limit of ${limit}."
+            + (
+                f" {len(unpriced)} model(s) had no known price and are excluded, so "
+                "actual spend is higher."
+                if unpriced
+                else ""
+            )
+        ),
+        evidence={
+            "estimated_cost_usd": execution.estimated_cost,
+            "limit_usd": limit,
+            "token_usage": execution.token_usage,
+            "unpriced_models": unpriced,
+        },
+        recommended_action="Review the model or token budget.",
+        suggested_intervention="pause",
+    )
+
+
+TASK_DETECTORS = (detect_repeated_tool_calls, detect_repeated_errors, detect_tool_call_limit)
+TIMED_DETECTORS = (detect_execution_timeout, detect_stall)
+SESSION_DETECTORS = (detect_token_budget, detect_cost_budget)
 
 
 def run_detectors(
-    execution: Execution, events: list[ExecutionEvent], config: dict[str, Any]
+    execution: Execution,
+    events: list[ExecutionEvent],
+    config: dict[str, Any],
+    task: Task | None = None,
 ) -> list[Detection]:
+    """Run every detector. ``events`` is the whole session, in order."""
+    task_events = [e for e in events if e.task_id == task.id] if task is not None else events
     findings: list[Detection] = []
-    for detector in ALL_DETECTORS:
+    for detector in TASK_DETECTORS:
+        result = detector(execution, task_events, config)
+        if result is not None:
+            result.task_id = task.id if task else None
+            findings.append(result)
+    for detector in TIMED_DETECTORS:
+        result = detector(execution, task_events, config, task)
+        if result is not None:
+            result.task_id = task.id if task else None
+            findings.append(result)
+    for detector in SESSION_DETECTORS:
         result = detector(execution, events, config)
         if result is not None:
             findings.append(result)

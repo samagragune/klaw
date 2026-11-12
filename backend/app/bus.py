@@ -222,3 +222,8 @@ def user_channel(user_id: str) -> str:
 
 def control_channel(execution_id: str) -> str:
     return f"control:{execution_id}"
+
+
+def approval_channel(approval_id: str) -> str:
+    """Where an adapter waiting on a human decision is woken."""
+    return f"approval:{approval_id}"

@@ -51,7 +51,7 @@ def make_event(seq: int, event_type: str, payload: dict, *, naive: bool = False)
 def tool_events(count: int, fingerprint: str = "same", *, naive: bool = False):
     return [
         make_event(
-            i, "tool.started", {"tool_name": "search", "args_fingerprint": fingerprint},
+            i, "TOOL_CALL_STARTED", {"tool_name": "search", "args_fingerprint": fingerprint},
             naive=naive,
         )
         for i in range(count)
@@ -130,11 +130,11 @@ def test_cost_detector_flags_partial_figures_as_understated():
 
 def test_repeated_errors_group_by_target_and_type():
     events = [
-        make_event(i, "tool.failed", {"tool_name": "api", "error_type": "Timeout", "error": "t/o"})
+        make_event(i, "TOOL_CALL_FAILED", {"tool_name": "api", "error_type": "Timeout", "error": "t/o"})
         for i in range(3)
     ]
     events.append(
-        make_event(9, "tool.failed", {"tool_name": "other", "error_type": "Boom", "error": "b"})
+        make_event(9, "TOOL_CALL_FAILED", {"tool_name": "other", "error_type": "Boom", "error": "b"})
     )
     result = detect_repeated_errors(make_execution(), events, CONFIG)
     assert result.evidence["target"] == "api"
@@ -144,8 +144,8 @@ def test_repeated_errors_group_by_target_and_type():
 
 def test_mixed_errors_below_threshold_are_not_flagged():
     events = [
-        make_event(0, "tool.failed", {"tool_name": "a", "error_type": "X"}),
-        make_event(1, "tool.failed", {"tool_name": "b", "error_type": "Y"}),
+        make_event(0, "TOOL_CALL_FAILED", {"tool_name": "a", "error_type": "X"}),
+        make_event(1, "TOOL_CALL_FAILED", {"tool_name": "b", "error_type": "Y"}),
     ]
     assert detect_repeated_errors(make_execution(), events, CONFIG) is None
 

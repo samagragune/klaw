@@ -12,11 +12,18 @@ const TOKEN_KEY = "reliability.token";
 
 export function getToken(): string {
   if (typeof window === "undefined") return "";
-  return (
-    window.localStorage.getItem(TOKEN_KEY) ??
-    process.env.NEXT_PUBLIC_RELIABILITY_TOKEN ??
-    ""
-  );
+  try {
+    // NEXT_PUBLIC_RELIABILITY_TOKEN is a local-development convenience only:
+    // anything NEXT_PUBLIC_ is readable by whoever loads the page, so a
+    // deployed dashboard must never set it. Deployments sign in instead.
+    return (
+      window.localStorage.getItem(TOKEN_KEY) ??
+      process.env.NEXT_PUBLIC_RELIABILITY_TOKEN ??
+      ""
+    );
+  } catch {
+    return "";
+  }
 }
 
 export function setToken(token: string) {
@@ -36,9 +43,34 @@ export class ApiError extends Error {
   }
 }
 
+function redirectToLogin() {
+  if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+    window.location.assign("/login");
+  }
+}
+
+/** Unauthenticated call (sign-in, sign-up). */
+async function publicRequest<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = typeof data.detail === "string" ? data.detail : "Request failed";
+    throw new ApiError(detail, response.status);
+  }
+  return data as T;
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
-  if (!token) throw new ApiError("No API token configured", 401);
+  if (!token) {
+    redirectToLogin();
+    throw new ApiError("Not signed in", 401);
+  }
 
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -58,6 +90,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     } catch {
       /* non-JSON error body; keep the status text */
     }
+    if (response.status === 401) {
+      clearToken();
+      redirectToLogin();
+    }
     throw new ApiError(detail, response.status);
   }
   if (response.status === 204) return undefined as T;
@@ -71,12 +107,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 export type ExecutionStatus =
   | "running"
   | "paused"
+  | "idle"
+  | "inactive"
   | "completed"
   | "failed"
   | "cancelled";
+export type Platform = "claude_code" | "openai_agents" | "custom_sdk";
 export type AgentStatus = "idle" | "running" | "warning" | "failed" | "paused";
 export type Severity = "critical" | "high" | "medium" | "low" | "informational";
-export type SupervisionMode = "observe" | "assist" | "autopilot";
+export type SupervisionMode = "observe" | "recommend" | "control";
 
 export interface Agent {
   id: string;
@@ -96,6 +135,19 @@ export interface Agent {
   total_tokens: number;
   estimated_cost: number;
   last_activity_at: string | null;
+  platform: Platform;
+  integration_id: string | null;
+  external_id: string | null;
+  reliability_score: number | null;
+  reliability: Reliability | null;
+}
+
+export interface Reliability {
+  score: number | null;
+  components: { task_success: number | null; clean_rate: number | null; tool_success: number | null };
+  finished_tasks: number;
+  running_tasks: number;
+  reason: string | null;
 }
 
 export interface Execution {
@@ -119,6 +171,12 @@ export interface Execution {
   cost_complete: boolean;
   error: string | null;
   output_summary: string | null;
+  platform: Platform;
+  integration_id: string | null;
+  external_session_id: string | null;
+  parent_execution_id: string | null;
+  context: Record<string, unknown> | null;
+  current_task_id: string | null;
 }
 
 export interface TraceEvent {
@@ -127,6 +185,8 @@ export interface TraceEvent {
   event_type: string;
   timestamp: string;
   payload: Record<string, unknown>;
+  task_id?: string | null;
+  actor?: string | null;
 }
 
 export interface Incident {
@@ -172,6 +232,152 @@ export interface ExecutionDetail extends Execution {
   events: TraceEvent[];
   incidents: Incident[];
   interventions: Intervention[];
+  output_evaluation: OutputEvaluation | null;
+  tasks: Task[];
+  decisions: Decision[];
+  approvals: Approval[];
+  capabilities: string[];
+}
+
+export interface Task {
+  id: string;
+  execution_id: string;
+  agent_id: string;
+  external_task_id: string | null;
+  objective: string | null;
+  status: "running" | "completed" | "failed" | "cancelled" | "abandoned";
+  started_at: string;
+  completed_at: string | null;
+  tool_call_count: number;
+  error_count: number;
+  model_calls: number;
+  output_summary: string | null;
+  evaluation: OutputEvaluation | null;
+  redirects: number;
+}
+
+export interface Decision {
+  id: string;
+  execution_id: string;
+  agent_id: string;
+  task_id: string | null;
+  event_type: string;
+  tool_name: string | null;
+  action: string;
+  reason: string;
+  feedback: string | null;
+  rule: string;
+  mode: string;
+  intended_action: string | null;
+  held_back_reason: string | null;
+  approval_id: string | null;
+  incident_id: string | null;
+  latency_ms: number | null;
+  created_at: string;
+}
+
+export interface Approval {
+  id: string;
+  execution_id: string;
+  agent_id: string;
+  task_id: string | null;
+  tool_name: string | null;
+  action_preview: Record<string, unknown>;
+  reason: string;
+  status: "pending" | "approved" | "denied" | "expired";
+  expires_at: string;
+  on_timeout: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export interface Integration {
+  id: string;
+  platform: Platform;
+  name: string;
+  capabilities: string[];
+  details: Record<string, unknown>;
+  last_seen_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+  label: string;
+  limitations: string[];
+  agents: number;
+  live_sessions: number;
+  connection: "active" | "quiet" | "never_connected" | "revoked";
+}
+
+export interface PlatformInfo {
+  platform: Platform;
+  label: string;
+  capabilities: string[];
+  limitations: string[];
+}
+
+export interface PlatformOverview {
+  platform: Platform;
+  label: string;
+  integrations: number;
+  agents: number;
+  live_sessions: number;
+  sessions: number;
+  open_incidents: number;
+}
+
+export interface ReliabilityReport {
+  formula: string;
+  weights: Record<string, number>;
+  agents: Array<Reliability & { agent_id: string; name: string | null; platform: Platform | null }>;
+}
+
+export interface EvaluationCosts {
+  days: number;
+  calls: number;
+  cached: number;
+  tokens: number;
+  estimated_cost: number;
+  cost_complete: boolean;
+  breakdown: Array<{
+    purpose: string;
+    model: string;
+    calls: number;
+    cached: number;
+    failed: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    estimated_cost: number | null;
+    unpriced_calls: number;
+    avg_latency_ms: number | null;
+  }>;
+}
+
+export interface SupervisionSummary {
+  decisions: Record<string, number>;
+  pending_approvals: number;
+  tasks: Record<string, number>;
+}
+
+export interface ActivityEvent extends TraceEvent {
+  execution_id: string;
+  platform: Platform;
+  agent_id: string;
+  agent_name: string;
+}
+
+export interface RiskRule {
+  id: string;
+  category: string;
+  severity: string;
+  description: string;
+  applies_to: string;
+}
+
+export interface SessionUser {
+  id: string;
+  email: string;
+  name: string | null;
 }
 
 export interface Overview {
@@ -199,6 +405,18 @@ export interface PolicyConfiguration {
   max_retries: number;
   permitted_interventions: string[];
   require_approval_for: string[];
+  evaluate_output_on_completion: boolean;
+  stall_seconds: number | null;
+  risk_rules_enabled: boolean;
+  risk_action: "request_approval" | "block" | "warn";
+  loop_action: "block" | "warn";
+  approval_required_tools: string[];
+  blocked_tools: string[];
+  approval_timeout_seconds: number;
+  approval_timeout_action: "deny" | "ask";
+  review_output_before_completion: boolean;
+  max_redirects: number;
+  forward_permission_requests: boolean;
 }
 
 export interface Policy {
@@ -258,7 +476,57 @@ const qs = (params: Record<string, string | number | boolean | undefined>) => {
   return text ? `?${text}` : "";
 };
 
+export interface OutputEvaluation {
+  satisfies_objective?: boolean | null;
+  gaps?: string[];
+  reasoning?: string;
+  confidence?: string;
+  evaluator?: string;
+  evaluated_at?: string;
+}
+
+export const PLATFORM_LABELS: Record<string, string> = {
+  claude_code: "Claude Code",
+  openai_agents: "OpenAI Agents SDK",
+  custom_sdk: "Custom SDK",
+};
+
+export const auth = {
+  login: (email: string, password: string) =>
+    publicRequest<{ token: string; user: SessionUser }>("/v1/auth/login", { email, password }),
+  signup: (email: string, password: string, name?: string) =>
+    publicRequest<{ token: string; user: SessionUser }>("/v1/auth/signup", { email, password, name }),
+};
+
 export const api = {
+  me: () => request<SessionUser>("/v1/auth/me"),
+  platforms: () => request<PlatformInfo[]>("/v1/integrations/platforms"),
+  integrations: () => request<Integration[]>("/v1/integrations"),
+  createIntegration: (platform: Platform, name: string) =>
+    request<Integration & { key: string }>("/v1/integrations", {
+      method: "POST",
+      body: JSON.stringify({ platform, name }),
+    }),
+  revokeIntegration: (id: string) =>
+    request<void>(`/v1/integrations/${id}`, { method: "DELETE" }),
+  platformOverview: () => request<PlatformOverview[]>("/v1/metrics/platforms"),
+  reliability: () => request<ReliabilityReport>("/v1/metrics/reliability"),
+  evaluationCosts: (days = 30) =>
+    request<EvaluationCosts>(`/v1/metrics/evaluation-costs${qs({ days })}`),
+  supervision: () => request<SupervisionSummary>("/v1/metrics/supervision"),
+  activity: (limit = 100) => request<ActivityEvent[]>(`/v1/activity${qs({ limit })}`),
+  tasks: (params: { execution_id?: string; agent_id?: string; status?: string; limit?: number } = {}) =>
+    request<Task[]>(`/v1/tasks${qs(params)}`),
+  decisions: (params: { execution_id?: string; include_allow?: boolean; limit?: number } = {}) =>
+    request<Decision[]>(`/v1/decisions${qs(params)}`),
+  approvals: (params: { status?: string; execution_id?: string } = {}) =>
+    request<Approval[]>(`/v1/approvals${qs(params)}`),
+  decideApproval: (id: string, approve: boolean, note?: string) =>
+    request<Approval>(`/v1/approvals/${id}/decision`, {
+      method: "POST",
+      body: JSON.stringify({ approve, note }),
+    }),
+  riskRules: () => request<RiskRule[]>("/v1/risk-rules"),
   config: () => request<RuntimeConfig>("/v1/config"),
   overview: () => request<Overview>("/v1/metrics/overview"),
 
@@ -287,6 +555,11 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
+  evaluateOutput: (executionId: string) =>
+    request<{ verdict: OutputEvaluation; incident_id: string | null }>(
+      `/v1/executions/${executionId}/evaluate-output`,
+      { method: "POST" },
+    ),
   diagnose: (id: string) =>
     request<Incident>(`/v1/incidents/${id}/diagnose`, { method: "POST" }),
 

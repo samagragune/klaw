@@ -7,6 +7,7 @@ import { useAsync, useTicker } from "@/lib/hooks";
 import { useLiveMessages } from "@/lib/live";
 import { compactNumber, fullNumber, money, percent, relativeTime } from "@/lib/format";
 import { PageBody, PageHeader } from "@/components/shell";
+import { ActionBadge, PlatformBadge } from "@/components/platform";
 import { ExecutionVolumeChart } from "@/components/charts";
 import {
   Card,
@@ -29,6 +30,8 @@ export default function OverviewPage() {
   const executions = useAsync(() => api.executions({ limit: 200 }), [], {
     intervalMs: 30000,
   });
+  const platforms = useAsync(() => api.platformOverview(), [], { intervalMs: 15000 });
+  const supervision = useAsync(() => api.supervision(), [], { intervalMs: 10000 });
 
   // Live events arrive far faster than it is worth re-querying rollups, so
   // coalesce them into at most one refresh per second.
@@ -40,8 +43,10 @@ export default function OverviewPage() {
       overview.refresh();
       agents.refresh();
       executions.refresh();
+      platforms.refresh();
+      supervision.refresh();
     }, 1000);
-  }, [overview, agents, executions]);
+  }, [overview, agents, executions, platforms, supervision]);
 
   useLiveMessages((message) => {
     if (message.type !== "heartbeat") refreshSoon();
@@ -58,13 +63,85 @@ export default function OverviewPage() {
     <>
       <PageHeader
         title="Overview"
-        description="Health of every agent connected to this workspace."
+        description="Every connected agent, across every platform, in one place."
       />
       <PageBody>
         {overview.error ? (
           <Card>
             <ErrorState error={overview.error} retry={overview.refresh} />
           </Card>
+        ) : null}
+
+        {platforms.data && platforms.data.length ? (
+          <div className="grid gap-3 md:grid-cols-3">
+            {platforms.data.map((p) => (
+              <Card key={p.platform} className="p-4">
+                <div className="flex items-center justify-between">
+                  <PlatformBadge platform={p.platform} />
+                  <span className="text-[11px] text-faint">
+                    {p.integrations} integration{p.integrations === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div>
+                    <div className="text-[11px] text-faint">Agents</div>
+                    <div className="text-lg tabular-nums text-ink">{p.agents}</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-faint">Live sessions</div>
+                    <div className="text-lg tabular-nums" style={{ color: p.live_sessions ? "var(--success)" : undefined }}>
+                      {p.live_sessions}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-faint">Open issues</div>
+                    <div className="text-lg tabular-nums" style={{ color: p.open_incidents ? "var(--failed)" : undefined }}>
+                      {p.open_incidents}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <EmptyState
+              title="No agent environments connected"
+              description="Connect Claude Code or an OpenAI Agents SDK app under Integrations to start supervising."
+            />
+          </Card>
+        )}
+
+        {supervision.data ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/approvals">
+              <Card className="flex items-center gap-2 px-3 py-2 hover:border-line-strong">
+                <span className="text-xs text-muted">Waiting for approval</span>
+                <span
+                  className="font-mono text-sm tabular-nums"
+                  style={{ color: supervision.data.pending_approvals ? "var(--warning)" : undefined }}
+                >
+                  {supervision.data.pending_approvals}
+                </span>
+              </Card>
+            </Link>
+            {Object.entries(supervision.data.decisions)
+              .filter(([a]) => a !== "ALLOW")
+              .map(([action, count]) => (
+                <Link key={action} href="/interventions">
+                  <Card className="flex items-center gap-2 px-3 py-2 hover:border-line-strong">
+                    <ActionBadge action={action} />
+                    <span className="font-mono text-sm tabular-nums text-ink">{count}</span>
+                  </Card>
+                </Link>
+              ))}
+            <Card className="flex items-center gap-2 px-3 py-2">
+              <span className="text-xs text-muted">Tool calls checked</span>
+              <span className="font-mono text-sm tabular-nums text-ink">
+                {Object.values(supervision.data.decisions).reduce((a, b) => a + b, 0)}
+              </span>
+            </Card>
+          </div>
         ) : null}
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -74,7 +151,7 @@ export default function OverviewPage() {
             hint={`${metrics?.running_agents ?? 0} active now`}
           />
           <Stat
-            label="Running executions"
+            label="Live sessions"
             value={metrics?.running_executions ?? "—"}
             hint={`${metrics?.executions_total ?? 0} total`}
             tone={metrics?.running_executions ? "success" : "default"}
@@ -130,7 +207,7 @@ export default function OverviewPage() {
           ) : !agents.data?.length ? (
             <EmptyState
               title="No agents connected"
-              description="Register one with the SDK, or run a bundled demo agent: python demo/run_demo.py healthy"
+              description="Connect an integration to see agents here."
             />
           ) : (
             <Table>

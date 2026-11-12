@@ -9,6 +9,7 @@ and no new dependency.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from abc import ABC, abstractmethod
 
@@ -25,6 +26,51 @@ class EvaluatorUnavailable(RuntimeError):
     """Raised when LLM evaluation is requested but not configured."""
 
 
+RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+MAX_ATTEMPTS = 4
+
+
+async def _post(client: httpx.AsyncClient, url: str, **kwargs) -> httpx.Response:
+    """POST with exponential backoff on rate limits and transient overload.
+
+    Hosted models regularly shed load with 429/503; a supervisor that gives up
+    on the first one is less reliable than the agents it watches.
+    """
+    delay = 1.5
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            response = await client.post(url, **kwargs)
+        except httpx.TransportError:
+            if attempt == MAX_ATTEMPTS:
+                raise
+        else:
+            if response.status_code not in RETRYABLE_STATUS or attempt == MAX_ATTEMPTS:
+                return response
+            logger.warning(
+                "evaluator: %s returned %s, retrying (%d/%d)",
+                response.request.url.host, response.status_code, attempt, MAX_ATTEMPTS,
+            )
+        await asyncio.sleep(delay)
+        delay *= 2
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+def _raise_for_status(response: httpx.Response) -> None:
+    """Like ``raise_for_status`` but keeps the provider's error body.
+
+    Providers explain retired models, quota and auth problems in the body;
+    a bare status code throws that away.
+    """
+    if response.is_success:
+        return
+    detail = response.text[:500].strip()
+    raise httpx.HTTPStatusError(
+        f"{response.status_code} from {response.request.url.host}: {detail}",
+        request=response.request,
+        response=response,
+    )
+
+
 class LLMProvider(ABC):
     name: str = "unknown"
 
@@ -32,6 +78,9 @@ class LLMProvider(ABC):
         self.model = model
         self._api_key = api_key
         self._base_url = base_url
+        #: (prompt_tokens, completion_tokens) of the most recent call, as the
+        #: provider reported them. Used for the evaluation-cost view.
+        self.last_usage: tuple[int, int] = (0, 0)
 
     @abstractmethod
     async def complete(self, system: str, prompt: str) -> str: ...
@@ -50,11 +99,16 @@ class GeminiProvider(LLMProvider):
             "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
         }
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
-            response = await client.post(
-                url, json=body, headers={"x-goog-api-key": self._api_key}
+            response = await _post(
+                client, url, json=body, headers={"x-goog-api-key": self._api_key}
             )
-            response.raise_for_status()
+            _raise_for_status(response)
             data = response.json()
+        usage = data.get("usageMetadata") or {}
+        self.last_usage = (
+            int(usage.get("promptTokenCount") or 0),
+            int(usage.get("candidatesTokenCount") or 0) + int(usage.get("thoughtsTokenCount") or 0),
+        )
         candidates = data.get("candidates") or []
         if not candidates:
             raise EvaluatorUnavailable("Gemini returned no candidates")
@@ -78,13 +132,18 @@ class OpenAIProvider(LLMProvider):
             ],
         }
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
-            response = await client.post(
+            response = await _post(
+                client,
                 f"{base}/chat/completions",
                 json=body,
                 headers={"Authorization": f"Bearer {self._api_key}"},
             )
-            response.raise_for_status()
+            _raise_for_status(response)
             data = response.json()
+        usage = data.get("usage") or {}
+        self.last_usage = (
+            int(usage.get("prompt_tokens") or 0), int(usage.get("completion_tokens") or 0)
+        )
         return data["choices"][0]["message"]["content"]
 
 
@@ -102,7 +161,8 @@ class AnthropicProvider(LLMProvider):
             "messages": [{"role": "user", "content": prompt}],
         }
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
-            response = await client.post(
+            response = await _post(
+                client,
                 f"{base}/messages",
                 json=body,
                 headers={
@@ -110,8 +170,12 @@ class AnthropicProvider(LLMProvider):
                     "anthropic-version": "2023-06-01",
                 },
             )
-            response.raise_for_status()
+            _raise_for_status(response)
             data = response.json()
+        usage = data.get("usage") or {}
+        self.last_usage = (
+            int(usage.get("input_tokens") or 0), int(usage.get("output_tokens") or 0)
+        )
         return "".join(
             block.get("text", "") for block in data.get("content", []) if block.get("type") == "text"
         )
@@ -149,8 +213,13 @@ _PROVIDERS: dict[str, type[LLMProvider]] = {
 }
 
 
-def get_provider() -> LLMProvider:
-    """Build the configured provider, or raise ``EvaluatorUnavailable``."""
+def get_provider(tier: str = "deep") -> LLMProvider:
+    """Build the configured provider, or raise ``EvaluatorUnavailable``.
+
+    ``tier="fast"`` uses ``SUPERVISOR_FAST_MODEL`` (routine screening);
+    ``"deep"`` uses ``SUPERVISOR_MODEL`` (diagnosis, confirming a failure).
+    With no fast model configured both tiers use the same model.
+    """
     settings = get_settings()
     choice = settings.supervisor_llm_provider
     if choice == "none":
@@ -165,8 +234,13 @@ def get_provider() -> LLMProvider:
         raise EvaluatorUnavailable(
             f"SUPERVISOR_LLM_PROVIDER={choice} but SUPERVISOR_LLM_API_KEY is empty."
         )
+    model = (
+        settings.supervisor_fast_model
+        if tier == "fast" and settings.supervisor_fast_model
+        else settings.supervisor_model
+    )
     return cls(
-        model=settings.supervisor_model,
+        model=model,
         api_key=settings.supervisor_llm_api_key,
         base_url=settings.supervisor_llm_base_url,
     )

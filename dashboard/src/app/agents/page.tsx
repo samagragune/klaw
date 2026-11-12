@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { useAsync, useTicker } from "@/lib/hooks";
-import { compactNumber, money, percent, relativeTime } from "@/lib/format";
+import { compactNumber, money, relativeTime } from "@/lib/format";
 import { PageBody, PageHeader } from "@/components/shell";
+import { PlatformBadge, ScoreBadge } from "@/components/platform";
 import {
   Badge,
   Card,
@@ -23,7 +24,7 @@ export default function AgentsPage() {
     <>
       <PageHeader
         title="Agents"
-        description="Every agent that has registered with this workspace through the SDK."
+        description="Every agent the supervisor has seen, grouped by the platform it runs on."
       />
       <PageBody>
         {agents.loading && !agents.data ? (
@@ -36,12 +37,21 @@ export default function AgentsPage() {
           <Card>
             <EmptyState
               title="No agents yet"
-              description="An agent registers the first time it runs under @supervisor.monitor. Try: python demo/run_demo.py healthy"
+              description="Agents appear the first time a connected integration sends an event. Connect one under Integrations."
             />
           </Card>
         ) : (
+          <div className="space-y-6">
+          {Array.from(new Set(agents.data.map((a) => a.platform))).map((platform) => (
+          <section key={platform} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <PlatformBadge platform={platform} />
+              <span className="text-xs text-faint">
+                {(agents.data ?? []).filter((a) => a.platform === platform).length} agent(s)
+              </span>
+            </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {agents.data.map((agent) => (
+            {(agents.data ?? []).filter((a) => a.platform === platform).map((agent) => (
               <Link key={agent.id} href={`/agents/${agent.id}`}>
                 <Card className="h-full p-4 transition-colors hover:border-line-strong hover:bg-panel-raised">
                   <div className="flex items-start justify-between gap-2">
@@ -62,15 +72,15 @@ export default function AgentsPage() {
 
                   <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">
                     <div>
-                      <dt className="text-[11px] text-faint">Executions</dt>
+                      <dt className="text-[11px] text-faint">Sessions</dt>
                       <dd className="text-sm tabular-nums text-ink">
                         {agent.execution_count}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-[11px] text-faint">Success rate</dt>
+                      <dt className="text-[11px] text-faint">Reliability</dt>
                       <dd className="text-sm tabular-nums text-ink">
-                        {percent(agent.success_rate)}
+                        <ScoreBadge score={agent.reliability_score} />
                       </dd>
                     </div>
                     <div>
@@ -103,6 +113,9 @@ export default function AgentsPage() {
                 </Card>
               </Link>
             ))}
+          </div>
+          </section>
+          ))}
           </div>
         )}
       </PageBody>

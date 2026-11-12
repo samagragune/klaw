@@ -72,7 +72,9 @@ async def upsert_policy(
     )
     policy = (await session.execute(query)).scalar_one_or_none()
 
-    configuration = body.configuration.model_dump()
+    # Store only what the caller set, so unset fields keep falling through to
+    # platform and global defaults instead of freezing today's values.
+    configuration = body.configuration.model_dump(exclude_unset=True)
     if policy is None:
         policy = Policy(
             user_id=user.id,

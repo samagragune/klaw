@@ -26,14 +26,14 @@ const MODES: Array<{ value: SupervisionMode; title: string; blurb: string }> = [
     blurb: "Record and report. No recommendations, no interventions.",
   },
   {
-    value: "assist",
-    title: "Assist",
-    blurb: "Raise incidents with a recommended action. A human decides.",
+    value: "recommend",
+    title: "Recommend",
+    blurb: "Raise issues and tell the agent what is wrong. Nothing is refused; a human decides.",
   },
   {
-    value: "autopilot",
-    title: "Autopilot",
-    blurb: "Act automatically, but only the actions permitted below.",
+    value: "control",
+    title: "Control",
+    blurb: "Block, hold for approval, stop or pause — only what the policy permits and the platform supports.",
   },
 ];
 
@@ -61,7 +61,7 @@ export default function PoliciesPage() {
   const defaults = useAsync(() => api.policyDefaults(), []);
 
   const [scope, setScope] = useState<string>("");
-  const [mode, setMode] = useState<SupervisionMode>("assist");
+  const [mode, setMode] = useState<SupervisionMode>("recommend");
   const [config, setConfig] = useState<PolicyConfiguration | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -238,7 +238,7 @@ export default function PoliciesPage() {
         <Card>
           <CardHeader
             title="Authorisation"
-            description="Autopilot may only take an action listed here, and never for a category that requires approval."
+            description="Asynchronous actions control mode may take on platforms that support them (custom SDK, OpenAI Agents SDK), and categories that always go to a human."
           />
           <div className="space-y-4 p-4">
             <div>
@@ -263,9 +263,9 @@ export default function PoliciesPage() {
                   );
                 })}
               </div>
-              {mode === "autopilot" && config.permitted_interventions.length === 0 ? (
+              {mode === "control" && config.permitted_interventions.length === 0 ? (
                 <p className="mt-2 text-[11px] text-[var(--warning)]">
-                  Autopilot is on but no action is permitted, so it will only record
+                  Control mode is on but no asynchronous action is permitted, so it will only record
                   that it held back.
                 </p>
               ) : null}
@@ -297,6 +297,165 @@ export default function PoliciesPage() {
               </div>
             </div>
           </div>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Decision points"
+            description="What the supervisor says when an agent is about to run a tool or finish a task. Recommend mode turns every refusal into a warning the agent sees."
+          />
+          <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Risky operations (control mode)">
+              <Select
+                value={config.risk_rules_enabled ? config.risk_action : "off"}
+                onChange={(event) =>
+                  event.target.value === "off"
+                    ? update({ risk_rules_enabled: false })
+                    : update({
+                        risk_rules_enabled: true,
+                        risk_action: event.target.value as PolicyConfiguration["risk_action"],
+                      })
+                }
+              >
+                <option value="request_approval">Hold for human approval</option>
+                <option value="block">Refuse with a reason</option>
+                <option value="warn">Warn only</option>
+                <option value="off">Risk rules off</option>
+              </Select>
+            </Field>
+            <Field label="Repeating a call that keeps returning the same thing">
+              <Select
+                value={config.loop_action}
+                onChange={(event) =>
+                  update({ loop_action: event.target.value as PolicyConfiguration["loop_action"] })
+                }
+              >
+                <option value="block">Refuse it, with corrective feedback</option>
+                <option value="warn">Warn only</option>
+              </Select>
+            </Field>
+            <Field label="Approval timeout">
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  min={5}
+                  max={540}
+                  value={config.approval_timeout_seconds}
+                  onChange={(event) =>
+                    update({ approval_timeout_seconds: Number(event.target.value) || 120 })
+                  }
+                />
+                <Select
+                  value={config.approval_timeout_action}
+                  onChange={(event) =>
+                    update({
+                      approval_timeout_action: event.target.value as PolicyConfiguration["approval_timeout_action"],
+                    })
+                  }
+                >
+                  <option value="deny">then deny</option>
+                  <option value="ask">then ask locally</option>
+                </Select>
+              </div>
+            </Field>
+            <Field label="Always need approval (tool names, comma separated)">
+              <Input
+                value={config.approval_required_tools.join(", ")}
+                placeholder="e.g. Bash, issue_refund"
+                onChange={(event) =>
+                  update({
+                    approval_required_tools: event.target.value
+                      .split(",")
+                      .map((t) => t.trim())
+                      .filter(Boolean),
+                  })
+                }
+              />
+            </Field>
+            <Field label="Never allowed (tool names)">
+              <Input
+                value={config.blocked_tools.join(", ")}
+                placeholder="e.g. WebFetch"
+                onChange={(event) =>
+                  update({
+                    blocked_tools: event.target.value
+                      .split(",")
+                      .map((t) => t.trim())
+                      .filter(Boolean),
+                  })
+                }
+              />
+            </Field>
+            <Field label="Stall alert after (seconds of silence)">
+              <Input
+                type="number"
+                min={30}
+                value={config.stall_seconds ?? ""}
+                onChange={(event) => update({ stall_seconds: numberOrNull(event.target.value) })}
+              />
+            </Field>
+          </div>
+          <div className="space-y-3 border-t border-line p-4">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={config.review_output_before_completion}
+                onChange={(event) => update({ review_output_before_completion: event.target.checked })}
+              />
+              <span className="text-xs leading-relaxed text-muted">
+                <span className="text-ink">Review the answer before the agent may finish.</span> If it
+                misses the task, the agent is sent back with the gaps — at most{" "}
+                <input
+                  type="number"
+                  min={0}
+                  max={3}
+                  value={config.max_redirects}
+                  onChange={(event) => update({ max_redirects: Number(event.target.value) || 0 })}
+                  className="w-10 rounded border border-line bg-bg px-1 text-center text-ink"
+                />{" "}
+                time(s) per task, so correction can never loop. Platforms with corrective feedback
+                only.
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={config.forward_permission_requests}
+                onChange={(event) => update({ forward_permission_requests: event.target.checked })}
+              />
+              <span className="text-xs leading-relaxed text-muted">
+                <span className="text-ink">Answer Claude Code&apos;s own permission prompts here.</span>{" "}
+                Prompts go to the Approvals queue instead of the terminal — useful for headless and
+                remote sessions, which otherwise deny them.
+              </span>
+            </label>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Output evaluation"
+            description="Deterministic rules cannot tell whether an answer is right. This asks the supervisor LLM."
+          />
+          <label className="flex cursor-pointer items-start gap-3 p-4">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={config.evaluate_output_on_completion}
+              onChange={(event) =>
+                update({ evaluate_output_on_completion: event.target.checked })
+              }
+            />
+            <span className="text-xs leading-relaxed text-muted">
+              <span className="text-ink">Evaluate every completed run.</span> Sends the
+              task, trace digest and output summary to the configured supervisor model
+              and raises a <code>poor_output</code> incident when it judges the
+              objective unmet with medium or high confidence. Each run costs one
+              model call.
+            </span>
+          </label>
         </Card>
 
         <div className="flex items-center gap-3">

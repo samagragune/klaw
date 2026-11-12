@@ -157,6 +157,8 @@ const EXECUTION_TONES: Record<ExecutionStatus, string> = {
   completed: "var(--success)",
   failed: "var(--failed)",
   cancelled: "var(--cancelled)",
+  idle: "var(--idle)",
+  inactive: "var(--idle)",
 };
 
 const AGENT_TONES: Record<AgentStatus, string> = {

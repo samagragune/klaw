@@ -6,25 +6,53 @@ import {
   Activity,
   AlertTriangle,
   Bot,
+  CheckSquare,
+  Gauge,
+  Hand,
   LayoutDashboard,
+  ListChecks,
+  LogOut,
   MessagesSquare,
+  Plug,
+  Radio,
   Settings,
   ShieldCheck,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useLive } from "@/lib/live";
 import { useAsync } from "@/lib/hooks";
-import { api } from "@/lib/api";
+import { api, clearToken } from "@/lib/api";
 import { cn } from "./ui";
 
-const NAV = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/agents", label: "Agents", icon: Bot },
-  { href: "/monitor", label: "Live Monitor", icon: Activity },
-  { href: "/incidents", label: "Incidents", icon: AlertTriangle },
-  { href: "/supervisor", label: "Supervisor", icon: MessagesSquare },
-  { href: "/policies", label: "Policies", icon: ShieldCheck },
-  { href: "/settings", label: "Settings", icon: Settings },
+const NAV_GROUPS = [
+  {
+    label: "Monitor",
+    items: [
+      { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+      { href: "/agents", label: "Connected agents", icon: Bot },
+      { href: "/activity", label: "Live activity", icon: Radio },
+      { href: "/monitor", label: "Sessions", icon: Activity },
+      { href: "/tasks", label: "Tasks", icon: ListChecks },
+    ],
+  },
+  {
+    label: "Supervise",
+    items: [
+      { href: "/approvals", label: "Approvals", icon: Hand },
+      { href: "/incidents", label: "Detected issues", icon: AlertTriangle },
+      { href: "/interventions", label: "Interventions", icon: CheckSquare },
+      { href: "/reliability", label: "Reliability", icon: Gauge },
+      { href: "/supervisor", label: "Ask the supervisor", icon: MessagesSquare },
+    ],
+  },
+  {
+    label: "Configure",
+    items: [
+      { href: "/integrations", label: "Integrations", icon: Plug },
+      { href: "/policies", label: "Policies", icon: ShieldCheck },
+      { href: "/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ];
 
 function ConnectionPill() {
@@ -53,10 +81,19 @@ export function Shell({ children }: { children: ReactNode }) {
     intervalMs: 20000,
   });
   const openCount = incidents.data?.length ?? 0;
+  const approvals = useAsync(() => api.approvals({ status: "pending" }), [], {
+    intervalMs: 5000,
+  });
+  const pendingApprovals = approvals.data?.length ?? 0;
+  const me = useAsync(() => api.me(), []);
+  const badges: Record<string, { count: number; tone: string }> = {
+    "/incidents": { count: openCount, tone: "var(--failed)" },
+    "/approvals": { count: pendingApprovals, tone: "var(--warning)" },
+  };
 
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-line bg-panel">
+      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-line bg-panel md:flex">
         <div className="flex items-center gap-2 border-b border-line px-4 py-4">
           <div className="grid size-6 place-items-center rounded bg-[var(--accent)] text-[11px] font-bold text-white">
             R
@@ -67,34 +104,61 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <nav className="flex-1 space-y-0.5 p-2">
-          {NAV.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(`${href}/`);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                  active
-                    ? "bg-panel-raised text-ink"
-                    : "text-muted hover:bg-panel-raised hover:text-ink",
-                )}
-              >
-                <Icon className="size-4" strokeWidth={1.75} />
-                <span className="flex-1">{label}</span>
-                {href === "/incidents" && openCount > 0 ? (
-                  <span className="rounded bg-[var(--failed)]/15 px-1.5 text-[10px] font-medium text-[var(--failed)]">
-                    {openCount}
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 space-y-4 overflow-y-auto p-2">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label}>
+              <div className="px-2.5 pb-1 text-[10px] font-medium uppercase tracking-wider text-faint">
+                {group.label}
+              </div>
+              <div className="space-y-0.5">
+                {group.items.map(({ href, label, icon: Icon }) => {
+                  const active = pathname === href || pathname.startsWith(`${href}/`);
+                  const badge = badges[href];
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+                        active
+                          ? "bg-panel-raised text-ink"
+                          : "text-muted hover:bg-panel-raised hover:text-ink",
+                      )}
+                    >
+                      <Icon className="size-4" strokeWidth={1.75} />
+                      <span className="flex-1">{label}</span>
+                      {badge && badge.count > 0 ? (
+                        <span
+                          className="rounded px-1.5 text-[10px] font-medium"
+                          style={{ color: badge.tone, backgroundColor: `color-mix(in srgb, ${badge.tone} 15%, transparent)` }}
+                        >
+                          {badge.count}
+                        </span>
+                      ) : null}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
-        <div className="border-t border-line px-4 py-3">
-          <ConnectionPill />
+        <div className="space-y-2 border-t border-line px-4 py-3">
+          <div className="flex items-center justify-between">
+            <ConnectionPill />
+            <button
+              type="button"
+              title="Sign out"
+              className="text-faint hover:text-ink"
+              onClick={() => {
+                clearToken();
+                window.location.replace("/login");
+              }}
+            >
+              <LogOut className="size-3.5" />
+            </button>
+          </div>
+          {me.data ? <div className="truncate text-[11px] text-faint">{me.data.email}</div> : null}
         </div>
       </aside>
 

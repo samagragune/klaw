@@ -44,15 +44,22 @@ export function ExecutionControls({
   if (terminal) {
     return (
       <div className="text-xs text-faint">
-        Execution is {execution.status}; it can no longer be controlled.
+        Session is {execution.status}; it can no longer be controlled.
       </div>
     );
   }
+  const caps = new Set(execution.capabilities ?? []);
+  const canPause = caps.has("pause");
+  const canStop = caps.has("stop");
 
   return (
     <div className="flex flex-col items-end gap-2">
       <div className="flex items-center gap-2">
-        {execution.status === "paused" ? (
+        {!canPause ? (
+          <span className="text-[11px] text-faint" title="This platform cannot suspend a running turn">
+            no pause on this platform
+          </span>
+        ) : execution.status === "paused" ? (
           <Button
             size="sm"
             variant="primary"
@@ -70,14 +77,16 @@ export function ExecutionControls({
             <Pause className="size-3.5" /> Pause
           </Button>
         )}
-        <Button
-          size="sm"
-          variant="danger"
-          disabled={busy !== null}
-          onClick={() => send("cancel", "Cancelled from the dashboard")}
-        >
-          <Ban className="size-3.5" /> Cancel
-        </Button>
+        {canStop ? (
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={busy !== null}
+            onClick={() => send("cancel", "Stopped from the dashboard")}
+          >
+            <Ban className="size-3.5" /> Stop
+          </Button>
+        ) : null}
       </div>
 
       {awaiting.length > 0 ? (

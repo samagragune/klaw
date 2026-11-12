@@ -16,6 +16,7 @@ from app.models import (
 )
 from app.schemas import AgentOut, AgentRegisterRequest, AgentSummary
 from app.security import CurrentUser, DbSession, record_audit
+from app.supervision.reliability import reliability_scores
 
 router = APIRouter(prefix="/v1/agents", tags=["agents"])
 
@@ -43,7 +44,10 @@ async def register_agent(
     """
     existing = (
         await session.execute(
-            select(Agent).where(Agent.user_id == user.id).where(Agent.name == body.name)
+            select(Agent)
+            .where(Agent.user_id == user.id)
+            .where(Agent.platform == "custom_sdk")
+            .where(Agent.external_id == body.name)
         )
     ).scalar_one_or_none()
 
@@ -58,6 +62,8 @@ async def register_agent(
 
     agent = Agent(
         user_id=user.id,
+        platform="custom_sdk",
+        external_id=body.name,
         name=body.name,
         framework=body.framework,
         description=body.description,
@@ -132,15 +138,19 @@ async def list_agents(user: CurrentUser, session: DbSession) -> list[AgentSummar
             summary.success_count += count
         elif exec_status in (ExecutionStatus.FAILED, ExecutionStatus.CANCELLED):
             summary.failure_count += count
-        elif exec_status in (ExecutionStatus.RUNNING, ExecutionStatus.PAUSED):
+        elif exec_status in ExecutionStatus.LIVE:
             summary.running_count += count
         if last_started and (
             summary.last_activity_at is None or last_started > summary.last_activity_at
         ):
             summary.last_activity_at = last_started
 
+    scores = await reliability_scores(session, user.id)
     for summary in summaries.values():
         summary.open_incident_count = open_incidents.get(summary.id, 0)
+        if summary.id in scores:
+            summary.reliability = scores[summary.id]
+            summary.reliability_score = scores[summary.id]["score"]
         finished = summary.success_count + summary.failure_count
         # Undefined rather than 0% when nothing has finished yet.
         summary.success_rate = (

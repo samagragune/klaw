@@ -1,301 +1,246 @@
 # Reliability
 
-**The control plane for autonomous AI agents.** Agents perform tasks; Reliability
-makes sure they perform them reliably — by observing every execution, detecting
-failure patterns from real evidence, and *actually intervening* in a running
-agent.
+**One supervisor for the AI agents you already run.** Reliability connects to
+existing agent environments — Claude Code and OpenAI Agents SDK applications
+today — observes what they do, detects loops, risky operations and work that
+misses its objective, and intervenes where the platform allows it, all from
+one dashboard.
+
+You keep your agent platform. Reliability plugs into it through that
+platform's own supported extension points (Claude Code lifecycle hooks; Agents
+SDK run hooks, tool guardrails and tracing) and speaks one event protocol to a
+central supervisor.
 
 ---
 
-## The one idea that matters
-
-Observing an agent does not give you the ability to stop it.
-
-Most "agent observability" tools stream traces and stop there. Reliability's SDK
-sits **inside the agent's own coroutine** and yields to the control plane at
-checkpoints — entering a monitored run, before every tool call, before every
-model call, and anywhere you ask for one explicitly. At a checkpoint the runtime
-compares itself against the control plane's desired state and suspends, aborts,
-or refuses a tool, and only *then* reports back that the command was applied.
-
-The consequences are deliberate and visible throughout the product:
-
-- An intervention is `pending` → `acknowledged` → `applied`. Nothing in the API
-  or the UI claims success before the runtime confirms it.
-- An agent that never reaches a checkpoint cannot be paused, and the dashboard
-  keeps showing the command as pending rather than pretending otherwise.
-- If the agent process dies, the execution is closed as `failed` with a reason
-  that says exactly who concluded that and why.
-
----
-
-## What's here
+## How it fits together
 
 ```
-backend/    FastAPI + SQLAlchemy async. Auth, ingestion, detection, control plane.
-sdk/        reliability-sdk — the Python package agents import.
-dashboard/  Next.js 16 + TypeScript + Tailwind. Dark operator console.
-demo/       Six demo agents and a control-plane acceptance script.
-docker/     Postgres + Redis + backend + dashboard compose stack.
+ YOUR MACHINES / SERVERS                                   SUPERVISOR (cloud or local)
+┌─────────────────────────────────────┐                  ┌──────────────────────────────────────┐
+│ Claude Code ──hooks──► companion    │  universal       │ FastAPI backend                      │
+│   (PreToolUse, Stop, …) hook script │  event protocol  │  • event processor + agent registry  │
+│                                     │ ───────────────► │  • task tracker, session contexts    │
+│ OpenAI Agents SDK app               │  /v1/events      │  • loop / progress / limit detectors │
+│   └─ AgentsSupervisor adapter       │  /v1/decisions   │  • risk engine + policy engine       │
+│      (run hooks, tool guardrails,   │ ◄─────────────── │  • decision + intervention engine    │
+│       tracing processor)            │  allow / warn /  │  • output evaluator (LLM, tiered)    │
+│                                     │  block / approve │  • approvals queue, audit trail      │
+│ Custom Python agent ── SDK          │  / stop / pause  └───────────────┬──────────────────────┘
+└─────────────────────────────────────┘                                  │ REST + WebSocket
+                                                                ┌────────▼─────────┐
+                                                                │ Web dashboard    │◄── operators
+                                                                └──────────────────┘
 ```
+
+* **Adapters are thin.** They translate platform events into the protocol and
+  turn supervisor decisions back into platform actions. All reasoning lives in
+  the backend; nothing about the supervisor is coupled to Claude or OpenAI.
+* **Every integration declares its capabilities.** The backend never asks a
+  platform for something it cannot do, and says so when a rule wanted more.
+* **Observation never depends on control.** If the supervisor is unreachable,
+  adapters fail open: the agent carries on and events are spooled.
+
+## What each platform supports
+
+| | Claude Code (hooks) | OpenAI Agents SDK | Custom Python SDK |
+|---|---|---|---|
+| Observe sessions, prompts, tool calls, sub-agents, completion | ✓ | ✓ | ✓ |
+| Model calls and tokens | ✓ from the local transcript (best effort) | ✓ | ✓ |
+| Block a tool call, with a reason the agent sees | ✓ `PreToolUse` deny | ✓ tool input guardrail | ✓ |
+| Hold a call for human approval | ✓ (bounded by the hook timeout) | ✓ | — |
+| Answer the platform's own permission prompts from the dashboard | ✓ `PermissionRequest` (opt-in) | — | — |
+| Corrective feedback / send back at completion | ✓ `Stop` block | ✓ guardrail message | — |
+| Stop | ✓ `continue: false` | ✓ at run-hook boundaries | ✓ |
+| Pause / resume | **✗** — hooks cannot suspend a turn | ✓ at run-hook boundaries | ✓ |
+
+Limitations are stated in the dashboard next to each integration and in
+[docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
 
 ---
 
-## Quick start (no Docker, no API keys, ~2 minutes)
+## Quick start (local)
 
-Requires **Python 3.11+** and **Node 20+**.
+Requires Python 3.11+ and Node 20+.
 
 ```bash
-# 1. Environment
-cp .env.example .env
-python -c "import secrets; print('SECRET_KEY=' + secrets.token_urlsafe(48))"
-python -c "import secrets; print('DEV_SESSION_TOKEN=' + secrets.token_urlsafe(24))"
-#    …paste those two values into .env
-
-# 2. Python deps
 python -m venv .venv
-.venv/Scripts/python -m pip install -r backend/requirements.txt   # Windows
-.venv/Scripts/python -m pip install -e ./sdk
-#    (macOS/Linux: .venv/bin/python)
+.venv/Scripts/python -m pip install -r backend/requirements.txt   # macOS/Linux: .venv/bin/python
+.venv/Scripts/python -m pip install -e ./sdk -e ./companion
 
-# 3. Create the local user + an API key (printed once — copy into .env
-#    as RELIABILITY_API_KEY)
-cd backend && python -m app.seed && cd ..
+# .env at the repo root (see Configuration). At minimum:
+#   SECRET_KEY=<random>   DEV_SESSION_TOKEN=<random>
+#   SUPERVISOR_LLM_PROVIDER=gemini   GEMINI_API_KEY=<key>   (optional: output review)
 
-# 4. Backend
-cd backend && python -m uvicorn app.main:app --port 8000
+cd backend && python -m app.seed && python -m uvicorn app.main:app --port 8000
 ```
 
-In a second terminal:
-
 ```bash
-# 5. Dashboard
-cd dashboard
-npm install
+cd dashboard && npm install
 echo "NEXT_PUBLIC_RELIABILITY_API_URL=http://127.0.0.1:8000" > .env.local
-echo "NEXT_PUBLIC_RELIABILITY_TOKEN=<your DEV_SESSION_TOKEN>" >> .env.local
-npm run dev
+npm run dev        # http://localhost:3000 → create an account
 ```
 
-Open **http://localhost:3000**. In a third terminal, give it something to watch:
+### Connect Claude Code
+
+In the dashboard: **Integrations → Claude Code → Create integration key**, then:
 
 ```bash
-python demo/run_demo.py --list        # the six scenarios
-python demo/run_demo.py healthy       # completes cleanly
-python demo/run_demo.py loop          # trips loop detection
-python demo/control_demo.py           # proves pause / resume / cancel end to end
+python -m reliability_companion connect --api-url http://127.0.0.1:8000 --key rl_int_…
+python -m reliability_companion claude-code install --project /path/to/project   # or --user
+python -m reliability_companion doctor
 ```
 
-Defaults are **SQLite** plus an **in-process event bus**, so nothing needs
-installing. Point `DATABASE_URL` at Postgres and set `EVENT_BUS=redis` to switch;
-the application code is driver-agnostic.
+`install` shows the exact change to `.claude/settings.json` and asks before
+writing; it backs the file up and only ever touches its own entries.
+`claude-code uninstall` removes them.
 
----
-
-## Using the SDK in your own agent
-
-```python
-from reliability import Supervisor
-
-supervisor = Supervisor(
-    api_key="rl_live_…",         # or RELIABILITY_API_KEY
-    agent_id="research-agent",   # stable name; registration is idempotent
-)
-
-@supervisor.monitor(task="Research AI startups")
-async def research():
-    async with supervisor.tool("search", {"q": "AI startups"}) as call:
-        call.set_result(await my_search("AI startups"))
-
-    async with supervisor.llm("gpt-4o-mini") as call:
-        response = await my_model_call()
-        call.record_usage(response.prompt_tokens, response.completion_tokens)
-
-    return "done"
-
-result = await research()
-```
-
-That is the whole integration. `tool()` and `llm()` are checkpoints; add
-`await supervisor.checkpoint()` inside any long loop that goes through neither.
-
-**Privacy defaults are conservative.** Tool arguments, tool results, prompts and
-completions stay in your process unless you opt in with `CaptureConfig`. What is
-always sent is a SHA-256 **fingerprint** of the arguments, computed locally —
-which is what lets the backend detect identical repeated calls without ever
-seeing the arguments themselves.
-
-```python
-from reliability import CaptureConfig
-
-CaptureConfig()                  # default: metadata + error messages
-CaptureConfig.metadata_only()    # strictest: names, counts, timings, fingerprints
-CaptureConfig.full()             # everything except keys matching redact_keys
-```
-
-The SDK is **async-first**: `@supervisor.monitor` requires a coroutine function,
-because cooperative suspension is what makes pause and cancel real. Synchronous
-agents are not supported yet and the decorator says so rather than failing
-subtly.
-
----
-
-## Detection
-
-Six deterministic detectors run on every ingested batch and on a 10-second
-sweep. **None of them needs an LLM**, which is why loop and budget detection work
-with no API key configured at all:
-
-| Detector | Trips on |
-|---|---|
-| `repeated_tool_call` | N identical calls (same tool, same argument fingerprint) |
-| `execution_timeout` | Running past the configured duration limit |
-| `tool_call_limit` | More tool calls than the policy allows |
-| `token_budget` | Reported token usage over the limit |
-| `cost_budget` | Estimated cost over the limit |
-| `repeated_errors` | N failures of the same target with the same error type |
-
-Every incident carries **evidence assembled from stored rows** — event ids,
-sequence numbers, timestamps — so a finding can always be traced back to the
-trace that produced it.
-
-An **LLM evaluator** sits behind a provider-agnostic interface (Gemini, OpenAI,
-Anthropic, or any OpenAI-compatible gateway) and is strictly additive: it writes
-a diagnosis onto an incident that deterministic rules already raised. It is never
-required for an incident to exist, and it only runs when a human asks.
-
----
-
-## Policies and authority
-
-A policy sets the limits; the **supervision mode** decides what happens when one
-trips:
-
-| Mode | Behaviour |
-|---|---|
-| `observe` | Record and report. No recommendations, no interventions. |
-| `assist` | Raise incidents with a recommended action. A human decides. |
-| `autopilot` | Act automatically — but only actions listed in `permitted_interventions`, and never for a category in `require_approval_for`. |
-
-Autopilot that wants to act outside its authorisation records *that it held
-back*, and why. Limits themselves are always enforced deterministically in the
-backend, never by a model.
-
-Policies resolve agent-specific → workspace default → built-in defaults.
-`GET /v1/policies/effective?agent_id=…` returns what will actually apply.
-
----
-
-## Demo scenarios
+### Connect an OpenAI Agents SDK app
 
 ```bash
-python demo/run_demo.py healthy        # completes cleanly, no incident
-python demo/run_demo.py loop           # identical tool call, forever
-python demo/run_demo.py failing        # retries a dependency that is down
-python demo/run_demo.py expensive      # blows the token budget
-python demo/run_demo.py poor-output    # succeeds while answering the wrong question
-python demo/run_demo.py long           # healthy but slow — pause/cancel it by hand
-python demo/run_demo.py loop --autopilot   # let the supervisor pause it itself
+pip install -e ./sdk[openai-agents]
+export RELIABILITY_API_URL=http://127.0.0.1:8000 RELIABILITY_INTEGRATION_KEY=rl_int_…
 ```
 
-`poor-output` is in the set on purpose: it is fast, cheap and error-free, so no
-deterministic rule catches it. It marks where the deterministic layer stops and
-the LLM output evaluator begins.
+```python
+from reliability.integrations.openai_agents import AgentsSupervisor
 
-**`python demo/control_demo.py`** is the acceptance test for the whole premise.
-It runs the looping agent, then drives the control plane over HTTP exactly as the
-dashboard does, asserting at each step that the *runtime* confirmed the action:
+supervisor = AgentsSupervisor(app_name="support-bot")
+result = await supervisor.run(triage_agent, user_input)        # instead of Runner.run
 
+# or keep your own Runner call:
+supervisor.instrument(triage_agent)                            # adds the tool guardrail
+result = await Runner.run(triage_agent, user_input, hooks=supervisor.hooks())
 ```
-[ok]  loop detected without any LLM involved
-[ok]  incident evidence cites real repeated events  (3 calls to 'search', threshold 3)
-[ok]  pause starts as pending, not reported as applied
-[ok]  runtime confirmed the pause was applied
-[ok]  agent stopped making tool calls while paused  (4 -> 4 over 3s)
-[ok]  agent coroutine is suspended, not finished
-[ok]  agent resumed making tool calls  (4 -> 5)
-[ok]  agent code raised ExecutionCancelled at a checkpoint
-[ok]  execution reports status=cancelled
-```
+
+---
+
+## Supervision
+
+**Modes** (per workspace or per agent): **observe** (record only),
+**recommend** (the agent is told what is wrong, nothing is refused), **control**
+(block, hold for approval, stop, pause — within the policy and the platform's
+capabilities). Operator commands from the dashboard are not limited by mode.
+
+**Decision points.** Before a tool runs (and, optionally, before an agent
+finishes) the adapter asks the supervisor. Rules, first match wins:
+
+1. operator stop / operator-blocked tool
+2. policy deny list
+3. risk rules — recursive deletes, disk writes, force-push / hard reset, DROP
+   TABLE, `curl | sh`, credential files, publishing, unbounded shell loops, …
+   (`GET /v1/risk-rules`; critical/high follow the policy's risk action, medium warns)
+4. loop guard — the same call already returned the same result (or failed)
+   N times in this task
+5. approval list
+6. completion review (opt-in) — the answer is reviewed against the task and
+   the agent is sent back with the gaps, at most `max_redirects` times
+7. allow
+
+Every decision is stored with its rule and reason; when the mode or the
+platform forced a milder action, the decision records what was intended and why.
+
+**Detectors** run on every batch and a 10-second sweep, scoped to the current
+task: identical tool calls with identical results, repeated failures, tool-call
+budget, duration, stalls (no activity with nothing in flight), and session-wide
+token and cost budgets. No LLM needed.
+
+**Output evaluator** (optional, Gemini/OpenAI/Anthropic): a fast model screens
+each finished task; only a confident failure is confirmed by the deeper model.
+It checks grounding — claims must be backed by successful tool results in the
+trace. Identical questions are answered from cache; every call's tokens, cost
+and latency appear under **Reliability → What supervision costs**.
+
+**Reliability score** = `100 × (0.5 × task success + 0.3 × incident-free rate +
+0.2 × tool success)`, shown only after 3 finished tasks.
+
+## Universal event protocol
+
+`POST /v1/events` (batched) and `POST /v1/decisions` (one pending event →
+one action). Fields: `event_id, platform, integration_id, agent_id,
+session_id, event_type, timestamp, task_id, execution_context, payload`.
+Types: `AGENT_REGISTERED, SESSION_STARTED, SESSION_ENDED, TASK_CREATED,
+TASK_UPDATED, TASK_COMPLETED, PROMPT_SUBMITTED, MODEL_CALL, TOOL_CALL_STARTED,
+TOOL_CALL_COMPLETED, TOOL_CALL_FAILED, SUBAGENT_STARTED, SUBAGENT_COMPLETED,
+AGENT_HANDOFF, AGENT_ERROR, AGENT_IDLE, AGENT_STOPPED` plus control extensions
+(`TOOL_CALL_BLOCKED, SESSION_PAUSED/RESUMED, GUARDRAIL_RESULT,
+SUPERVISOR_DECISION, APPROVAL_REQUESTED/RESOLVED, NOTIFICATION, LOG`).
+Idempotent on `event_id`; agents, sessions and tasks are created on first
+sight, so stateless adapters need no setup call. See
+[docs/INTEGRATIONS.md](docs/INTEGRATIONS.md#protocol) for writing a new adapter.
+
+## Dashboard
+
+Overview (per platform) · Connected agents · Live activity · Sessions with
+full traces · Tasks · Approvals queue · Detected issues · Interventions
+(decision log) · Reliability scores and evaluation cost · Ask the supervisor ·
+Integrations (keys, setup, capabilities, limits) · Policies · Settings.
+Real accounts: each sign-up is an isolated workspace.
+
+## Credentials
+
+* **User API key** `rl_live_…` — full workspace access (scripts, custom SDK).
+* **Integration key** `rl_int_…` — scoped to one integration: send events,
+  request decisions, wait on approvals, poll control. Cannot read the dashboard
+  or change policy. This is what gets installed on a developer machine.
+* **Session token** `rs_…` — dashboard sign-in; signed, expiring.
+* **Dev token** — local convenience, refused unless `RELIABILITY_ENV=development`.
 
 ---
 
 ## Tests
 
 ```bash
-.venv/Scripts/python -m pytest backend/tests sdk/tests -q     # 69 tests
+.venv/Scripts/python -m pytest backend/tests sdk/tests companion/tests -q   # 131 tests
 cd dashboard && npx tsc --noEmit && npm run build
 ```
 
-Coverage is aimed at the things that would be dangerous to get wrong: tenant
-isolation, ingestion idempotency, each detector's threshold behaviour, the full
-intervention lifecycle, autopilot's policy limits, stale-execution reaping, and
-the SDK's cooperative pause/cancel/block enforcement.
+**Live integration tests** drive real agents — not synthetic events — and
+check what the supervisor recorded:
 
----
+```bash
+# Real headless Claude Code sessions (uses your Claude plan):
+python integrations_tests/claude_code_live.py --project <project with hooks>     # benign, approval, loop, stop
+# Real Agents SDK runs (model via Gemini's OpenAI-compatible endpoint):
+python integrations_tests/openai_agents_live.py --app helpdesk                   # handoffs, approve, deny, pause, stop, guardrail, tool failure, concurrency
+python integrations_tests/openai_agents_live.py --app examples --examples <openai-agents-python>/examples
+# Both platforms at once:
+python integrations_tests/mixed_concurrency_live.py --project <project with hooks>
+```
 
-## Architecture notes
+## Deployment
 
-**Control state** is derived by folding the ordered history of non-failed
-commands, so a pause followed by a resume resolves correctly no matter how the
-SDK polls. Cancel wins over everything.
-
-**Delivery** is a long poll (`GET /v1/executions/{id}/control?wait=25`) that
-parks on the event bus and returns the instant a command is issued — push latency
-without a second protocol. Control state also rides along on every
-ingest response, so a busy agent learns it must pause with no extra request.
-
-**Liveness** has two signals: events, and control polls. The second keeps working
-while an execution is paused and emitting nothing, which is how a paused agent
-stays distinguishable from a dead one.
-
-**Ingestion** is idempotent on `(execution_id, client_event_id)`, so a retried
-batch after a network failure never double-counts.
-
-**Costs** are arithmetic over reported token counts using a price table
-(`backend/pricing.json` overrides it). An unknown model yields `None`, not a
-guess, and the execution is flagged `cost_complete = false` so totals are
-labelled partial instead of implying precision.
-
-**User isolation**: every tenant-owned row carries `user_id` directly, so
-isolation is one predicate on every query rather than a join that is easy to
-forget. Cross-tenant access returns 404, never 403 — the existence of another
-tenant's resource is not confirmed.
-
----
+Backend → Railway or Fly (`railway.json`, `fly.toml`, `backend/Dockerfile`;
+Postgres via the host's `DATABASE_URL`, `postgres://` URLs are accepted).
+Dashboard → Vercel (root `dashboard/`, env `NEXT_PUBLIC_RELIABILITY_API_URL`).
+Step-by-step in [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Configuration
 
-Everything is environment-driven; see `.env.example` for the annotated list.
-
 | Variable | Default | Notes |
 |---|---|---|
-| `DATABASE_URL` | SQLite file | `postgresql+asyncpg://…` for Postgres |
-| `EVENT_BUS` | `memory` | `redis` to fan out across processes |
-| `SECRET_KEY` | — | generate one; never commit it |
-| `DEV_SESSION_TOKEN` | — | the dashboard's local credential |
-| `SUPERVISOR_LLM_PROVIDER` | `none` | `gemini` \| `openai` \| `anthropic` \| `fake` |
-| `SUPERVISOR_LLM_API_KEY` | — | **set this in `.env`, never paste a key into chat** |
-| `SUPERVISOR_MODEL` | `gemini-2.0-flash` | provider-specific model id |
-| `STALE_EXECUTION_SECONDS` | `180` | silence after which an execution is reaped |
-
----
+| `RELIABILITY_ENV` | `development` | set `production` when deployed (enforces a real `SECRET_KEY`, disables the dev token) |
+| `SECRET_KEY` | — | signs dashboard sessions; long random value |
+| `DATABASE_URL` | SQLite file | Postgres for deployments |
+| `EVENT_BUS` | `memory` | `redis` to run more than one backend process |
+| `CORS_ORIGINS` | localhost:3000 | the dashboard's origin when deployed |
+| `ALLOW_SIGNUP` | `true` | turn off once your accounts exist |
+| `SUPERVISOR_LLM_PROVIDER` | `none` | `gemini` \| `openai` \| `anthropic` |
+| `SUPERVISOR_MODEL` / `SUPERVISOR_FAST_MODEL` | `gemini-3.5-flash` / same | deep and fast evaluator tiers |
+| `SUPERVISOR_LLM_API_KEY` | — | falls back to `GEMINI_API_KEY` for gemini |
+| `STALE_EXECUTION_SECONDS` | 180 | heartbeat platforms: silence ⇒ failed |
+| `INACTIVE_SESSION_SECONDS` | 1800 | hook platforms: silence ⇒ inactive (never failed) |
 
 ## Known limits
 
-Stated plainly, because a reliability product that overstates itself is a
-contradiction:
-
-- **Schema changes are not migrated.** The backend uses `create_all`. Alembic
-  belongs here before any deployment carrying data worth keeping; today a schema
-  change means deleting `data/reliability.db`.
-- **The Docker stack is unverified.** It was written without Docker available on
-  the build machine. The SQLite + in-process route is the tested one.
-- **One backend process** unless `EVENT_BUS=redis` — the in-memory bus only fans
-  out within a single process.
-- **Async Python only.** No sync agents, and no framework adapters yet; LangGraph
-  and CrewAI integrations are deliberately not claimed.
-- **Dashboard auth is a shared dev token**, not a login. Real user isolation is
-  enforced server-side and already tested; only the session UI is deferred.
-- **`request_approval` and `auto_retry`** exist in the policy schema but are not
-  yet wired to runtime behaviour.
+* **Schema migrations**: `create_all` only. Introduce Alembic before keeping
+  data across schema changes in production.
+* **Claude Code** cannot be paused; usage comes from its local transcript,
+  whose format is internal to Claude Code (best effort, never required).
+* **Agents SDK**: hosted tools are observed, not intercepted; control applies
+  at hook boundaries, not inside an in-flight model call.
+* **Risk rules** are pattern rules: they catch recognisable dangerous
+  commands and never claim an unmatched one is safe.
+* **Desktop companion** is a CLI today; the GUI, cross-agent analysis, MCP and
+  further frameworks are phase 2–3 ([docs/REWORK_PLAN.md](docs/REWORK_PLAN.md)).
+* **One backend process** unless `EVENT_BUS=redis`.

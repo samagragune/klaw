@@ -22,6 +22,8 @@ import { API_URL, getToken } from "./api";
 
 export type LiveMessage =
   | { type: "connected"; user_id: string }
+  | { type: "decision.created"; execution_id: string; decision: Record<string, unknown>; approval_id: string | null }
+  | { type: "approval.updated"; approval_id: string; status: string }
   | { type: "heartbeat" }
   | { type: "error"; message: string }
   | { type: "execution.started"; execution: Record<string, unknown> }

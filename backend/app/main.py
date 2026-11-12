@@ -12,7 +12,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.bus import close_bus, get_bus
 from app.config import get_settings
 from app.db import init_models
-from app.routers import agents, control, executions, incidents, metrics, policies, supervisor, ws
+from app.routers import (
+    agents,
+    analytics,
+    approvals,
+    auth,
+    control,
+    executions,
+    incidents,
+    integrations,
+    metrics,
+    policies,
+    protocol,
+    supervisor,
+    ws,
+)
 from app.sweeper import run_sweeper
 
 logging.basicConfig(
@@ -25,6 +39,13 @@ logger = logging.getLogger("reliability")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    if settings.reliability_env != "development" and (
+        settings.secret_key.startswith("change-me") or len(settings.secret_key) < 32
+    ):
+        raise RuntimeError(
+            "SECRET_KEY must be set to a long random value outside development: "
+            "it signs dashboard sessions."
+        )
     await init_models()
     get_bus()
 
@@ -69,6 +90,11 @@ app.include_router(policies.router)
 app.include_router(metrics.router)
 app.include_router(supervisor.router)
 app.include_router(ws.router)
+app.include_router(auth.router)
+app.include_router(integrations.router)
+app.include_router(protocol.router)
+app.include_router(approvals.router)
+app.include_router(analytics.router)
 
 
 @app.get("/health", tags=["meta"])

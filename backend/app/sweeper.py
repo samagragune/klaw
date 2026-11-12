@@ -28,7 +28,8 @@ from app.config import get_settings
 from app.control import expire_pending_interventions
 from app.db import SessionLocal
 from app.models import Execution, ExecutionStatus, utcnow
-from app.supervision.engine import evaluate_execution
+from app.models import Capability
+from app.supervision.engine import evaluate_execution, execution_capabilities
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +52,26 @@ def last_contact(execution: Execution) -> datetime:
     return max(stamp for stamp in candidates if stamp is not None)
 
 
-async def reap_if_stale(session, execution: Execution, stale_after: float) -> bool:
-    """Close an execution whose runtime has gone silent. Returns True if reaped."""
+async def reap_if_stale(
+    session, execution: Execution, stale_after: float, *, has_heartbeat: bool = True
+) -> bool:
+    """Close an execution whose runtime has gone silent. Returns True if reaped.
+
+    Only platforms with a liveness signal are reaped as failed. A hook-based
+    platform (Claude Code) only speaks when something happens, so a quiet
+    session is marked INACTIVE - never FAILED - after a much longer silence.
+    """
     silent_for = (datetime.now(timezone.utc) - last_contact(execution)).total_seconds()
+    if not has_heartbeat:
+        inactive_after = get_settings().inactive_session_seconds
+        if silent_for >= inactive_after and execution.status in (
+            ExecutionStatus.RUNNING,
+            ExecutionStatus.IDLE,
+        ):
+            execution.status = ExecutionStatus.INACTIVE
+            logger.info("marked session %s inactive after %.0fs", execution.id, silent_for)
+            return True
+        return False
     if silent_for < stale_after:
         return False
 
@@ -100,16 +118,20 @@ async def sweep_once() -> tuple[int, int]:
             (
                 await session.execute(
                     select(Execution).where(
-                        Execution.status.in_(
-                            (ExecutionStatus.RUNNING, ExecutionStatus.PAUSED)
-                        )
+                        Execution.status.in_(tuple(ExecutionStatus.LIVE))
                     )
                 )
             ).scalars()
         )
         for execution in executions:
             try:
-                if await reap_if_stale(session, execution, stale_after):
+                capabilities = await execution_capabilities(session, execution)
+                if await reap_if_stale(
+                    session,
+                    execution,
+                    stale_after,
+                    has_heartbeat=Capability.HEARTBEAT in capabilities,
+                ):
                     reaped += 1
                     continue
                 await evaluate_execution(session, execution)

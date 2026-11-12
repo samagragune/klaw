@@ -40,8 +40,13 @@ from app.schemas import (
     InterventionCreate,
     InterventionOut,
 )
-from app.security import CurrentUser, DbSession, record_audit
-from app.supervision.engine import evaluate_execution
+from app.security import CurrentPrincipal, CurrentUser, DbSession, record_audit
+from app import events as E
+from app.models import Capability
+from app.routers.protocol import owned_execution
+from app.supervision.engine import evaluate_execution, execution_capabilities, policy_for_execution
+from app.supervision.output_review import schedule_output_review
+from app.supervision.providers import provider_configured
 from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
@@ -51,9 +56,10 @@ router = APIRouter(prefix="/v1", tags=["control"])
 
 @router.post("/ingest/events", response_model=IngestResult)
 async def ingest_events(
-    body: EventBatchIn, user: CurrentUser, session: DbSession
+    body: EventBatchIn, principal: CurrentPrincipal, session: DbSession
 ) -> IngestResult:
-    execution = await get_owned_execution(session, user, body.execution_id)
+    """Legacy SDK ingestion; translated onto the universal pipeline."""
+    execution = await owned_execution(session, principal, body.execution_id)
 
     stored, duplicates = await store_events(
         session, execution=execution, incoming=body.events
@@ -71,17 +77,26 @@ async def ingest_events(
     if stored:
         await publish_execution_update(execution, stored)
 
+    finished = any(
+        e.event_type == E.SESSION_ENDED and (e.payload or {}).get("status") == E.END_COMPLETED
+        for e in stored
+    )
+    if finished and provider_configured():
+        _, config, _ = await policy_for_execution(session, execution)
+        if config.get("evaluate_output_on_completion"):
+            schedule_output_review(execution.id)
+
     return IngestResult(accepted=len(stored), duplicates=duplicates, control=state)
 
 
 @router.get("/executions/{execution_id}/control", response_model=ControlStateOut)
 async def poll_control(
     execution_id: str,
-    user: CurrentUser,
+    principal: CurrentPrincipal,
     session: DbSession,
     wait: Annotated[float, Query(ge=0, le=60)] = 0,
 ) -> ControlStateOut:
-    execution = await get_owned_execution(session, user, execution_id)
+    execution = await owned_execution(session, principal, execution_id)
     # Polling is itself proof the runtime is alive, which is how a paused
     # execution - which emits no events at all - stays distinguishable from
     # an agent process that has died.
@@ -103,7 +118,7 @@ async def poll_control(
     # Re-read: the command was written by a different request on a different
     # session, so this session's snapshot predates it.
     await session.rollback()
-    execution = await get_owned_execution(session, user, execution_id)
+    execution = await owned_execution(session, principal, execution_id)
     state = await compute_control_state(session, execution.id)
     await session.commit()
     return state
@@ -126,6 +141,21 @@ async def request_intervention(
     runtime acknowledges it through ``/v1/interventions/ack``.
     """
     execution = await get_owned_execution(session, user, execution_id)
+
+    needed = {
+        "pause": Capability.PAUSE,
+        "resume": Capability.PAUSE,
+        "cancel": Capability.STOP,
+        "block_tool": Capability.BLOCK_TOOL,
+        "request_approval": Capability.REQUEST_APPROVAL,
+    }[body.action]
+    capabilities = await execution_capabilities(session, execution)
+    if needed not in capabilities:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"{execution.platform} sessions do not support '{body.action}'. "
+            f"Supported: {', '.join(sorted(capabilities))}.",
+        )
 
     if body.action == "block_tool" and not body.parameters.get("tool_name"):
         raise HTTPException(
@@ -177,7 +207,7 @@ async def list_interventions(
 
 @router.post("/interventions/ack", response_model=InterventionOut)
 async def acknowledge_intervention(
-    body: InterventionAck, user: CurrentUser, session: DbSession
+    body: InterventionAck, principal: CurrentPrincipal, session: DbSession
 ) -> Intervention:
     """Runtime confirmation that a command was received or enforced.
 
@@ -189,11 +219,14 @@ async def acknowledge_intervention(
         await session.execute(
             select(Intervention)
             .where(Intervention.id == body.intervention_id)
-            .where(Intervention.user_id == user.id)
+            .where(Intervention.user_id == principal.user_id)
         )
     ).scalar_one_or_none()
     if intervention is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Intervention not found")
+    # Integration keys may only acknowledge commands for their own sessions.
+    await owned_execution(session, principal, intervention.execution_id)
+    user = principal.user
 
     await apply_acknowledgement(
         session, intervention=intervention, status=body.status, detail=body.detail
