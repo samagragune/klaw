@@ -8,51 +8,79 @@ import { PageBody, PageHeader } from "@/components/shell";
 import { PlatformBadge, Pre } from "@/components/platform";
 import { Badge, Button, Card, CardHeader, EmptyState, ErrorState, Input, Loading, Select } from "@/components/ui";
 
+/** Where the companion and SDK are installed from (override per deployment). */
+const REPO = process.env.NEXT_PUBLIC_RELIABILITY_REPO ?? "https://github.com/samagragune/klaw.git";
+
 function setupSteps(platform: Platform, key: string): { title: string; body: string }[] {
   if (platform === "claude_code") {
     return [
       {
-        title: "1. Install the companion (Python 3.9+, no dependencies)",
-        body: "pip install reliability-companion\n# or, from this repository:\npip install -e ./companion",
+        title: "Run this in the project you want supervised (Python 3.9+):",
+        body:
+          `pip install "git+${REPO}#subdirectory=companion" && ` +
+          `reliability-companion setup --api-url ${API_URL} --key ${key}`,
       },
       {
-        title: "2. Connect this machine",
-        body: `python -m reliability_companion connect --api-url ${API_URL} --key ${key}`,
+        title: "That's it. It shows the change to .claude/settings.json and asks before writing. Options:",
+        body:
+          "--user          supervise every project instead of the current one\n" +
+          "--yes           skip the confirmation (scripts)\n" +
+          "reliability-companion claude-code uninstall --project .   # remove it again",
       },
-      {
-        title: "3. Install hooks for one project (or --user for all projects)",
-        body: "python -m reliability_companion claude-code install --project /path/to/project\n# shows the exact change to .claude/settings.json and asks before writing",
-      },
-      { title: "4. Check", body: "python -m reliability_companion doctor" },
     ];
   }
   if (platform === "openai_agents") {
     return [
-      { title: "1. Install the SDK", body: "pip install -e ./sdk   # reliability-sdk, plus openai-agents" },
       {
-        title: "2. Environment",
+        title: "1. Install into your app's environment",
+        body: `pip install "git+${REPO}#subdirectory=sdk" openai-agents`,
+      },
+      {
+        title: "2. Set two environment variables",
         body: `RELIABILITY_API_URL=${API_URL}\nRELIABILITY_INTEGRATION_KEY=${key}`,
       },
       {
-        title: "3. Wrap your runs",
+        title: "3. Change one line: Runner.run → supervisor.run",
         body: `from reliability.integrations.openai_agents import AgentsSupervisor
 
 supervisor = AgentsSupervisor(app_name="my-app")
-result = await supervisor.run(triage_agent, user_input)   # instead of Runner.run
-
-# or keep Runner.run:
-supervisor.instrument(triage_agent)
-result = await Runner.run(triage_agent, user_input, hooks=supervisor.hooks())`,
+result = await supervisor.run(triage_agent, user_input)`,
       },
     ];
   }
   return [
-    { title: "1. Install", body: "pip install -e ./sdk" },
+    { title: "1. Install", body: `pip install "git+${REPO}#subdirectory=sdk"` },
     {
       title: "2. Use the key",
       body: `from reliability import Supervisor\nsupervisor = Supervisor(api_key="${key}", agent_id="my-agent", api_url="${API_URL}")`,
     },
   ];
+}
+
+/** Watches a new integration until it checks in and sends its first session. */
+function ConnectionWatcher({ id }: { id: string }) {
+  const state = useAsync(() => api.integrations(), [id], { intervalMs: 3000 });
+  const me = state.data?.find((i) => i.id === id);
+  const step = !me || me.connection === "never_connected" ? 0 : me.agents === 0 ? 1 : 2;
+  const labels = [
+    "Waiting for the companion or SDK to connect…",
+    "Connected. Waiting for the first agent session…",
+    `Receiving data from ${me?.agents ?? 0} agent${me?.agents === 1 ? "" : "s"}.`,
+  ];
+  return (
+    <div
+      className="flex items-center gap-2 rounded border border-line px-3 py-2 text-xs"
+      style={{ color: step === 2 ? "var(--success)" : "var(--warning)" }}
+    >
+      <span className={step < 2 ? "pulse size-1.5 rounded-full bg-current" : "size-1.5 rounded-full bg-current"} />
+      {labels[step]}
+      {step === 2 ? (
+        <a href="/monitor" className="ml-auto text-ink underline">
+          open sessions
+        </a>
+      ) : null}
+    </div>
+  );
 }
 
 function CreatedPanel({ created, onClose }: { created: Integration & { key: string }; onClose: () => void }) {
@@ -85,6 +113,7 @@ function CreatedPanel({ created, onClose }: { created: Integration & { key: stri
         </Button>
       </div>
       <div className="mt-4 space-y-3">
+        <ConnectionWatcher id={created.id} />
         {setupSteps(created.platform, created.key).map((step) => (
           <div key={step.title}>
             <div className="mb-1 text-xs font-medium text-ink">{step.title}</div>

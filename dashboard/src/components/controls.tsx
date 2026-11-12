@@ -118,7 +118,7 @@ export function InterventionList({
   if (!interventions.length) {
     return (
       <div className="px-4 py-8 text-center text-xs text-faint">
-        No control actions have been taken on this execution.
+        No control actions have been taken on this session.
       </div>
     );
   }

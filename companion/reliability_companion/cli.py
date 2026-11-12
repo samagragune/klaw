@@ -308,6 +308,30 @@ def cmd_cc_uninstall(args) -> int:
     return _write_settings(path, before, without_hooks(before), args.yes, "Remove")
 
 
+def cmd_setup(args) -> int:
+    """Everything in one step: connect, install hooks, verify.
+
+    This is the command the dashboard shows, with the URL and key filled in.
+    """
+    print("Step 1/3 - connecting to the supervisor")
+    if cmd_connect(args) != 0:
+        return 1
+    print("\nStep 2/3 - installing Claude Code hooks")
+    if not args.user and not args.project:
+        args.project = os.getcwd()
+    if cmd_cc_install(args) != 0:
+        return 1
+    print("\nStep 3/3 - checking")
+    ok = cmd_doctor(args) == 0
+    scope = "every project (user settings)" if args.user else args.project
+    print(
+        f"\n{'Done' if ok else 'Installed, but a check failed (see above)'}. "
+        f"Claude Code sessions in {scope} now report to {args.api_url.rstrip('/')}.\n"
+        "Start Claude Code there; the session appears on the dashboard within seconds."
+    )
+    return 0 if ok else 1
+
+
 # --------------------------------------------------------------------------
 
 
@@ -319,6 +343,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--api-url", required=True)
     p.add_argument("--key", required=True, help="integration key (rl_int_...) from the dashboard")
     p.set_defaults(fn=cmd_connect)
+
+    s = sub.add_parser("setup", help="connect + install Claude Code hooks + check, in one step")
+    s.add_argument("--api-url", required=True)
+    s.add_argument("--key", required=True, help="integration key (rl_int_...) from the dashboard")
+    scope = s.add_mutually_exclusive_group()
+    scope.add_argument("--project", help="project directory (default: the current directory)")
+    scope.add_argument("--user", action="store_true", help="all projects (~/.claude/settings.json)")
+    s.add_argument("--yes", action="store_true", help="apply without the interactive confirmation")
+    s.set_defaults(fn=cmd_setup)
 
     sub.add_parser("status", help="show connection and hook state").set_defaults(fn=cmd_status)
     sub.add_parser("doctor", help="check that everything is wired correctly").set_defaults(fn=cmd_doctor)

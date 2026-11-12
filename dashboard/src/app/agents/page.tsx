@@ -92,7 +92,13 @@ export default function AgentsPage() {
                     <div>
                       <dt className="text-[11px] text-faint">Est. cost</dt>
                       <dd className="text-sm tabular-nums text-ink">
-                        {money(agent.estimated_cost)}
+                        {agent.estimated_cost === 0 && agent.total_tokens > 0 ? (
+                          <span className="text-faint" title="This agent's models have no price in the table">
+                            unpriced
+                          </span>
+                        ) : (
+                          money(agent.estimated_cost)
+                        )}
                       </dd>
                     </div>
                   </dl>

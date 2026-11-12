@@ -76,12 +76,43 @@ async def seed(mint_new_key: bool) -> None:
         print()
 
 
+async def set_password(email: str, password: str) -> None:
+    """Give an account a dashboard password (creating the account if needed)."""
+    from app.security import hash_password
+
+    await init_models()
+    async with SessionLocal() as session:
+        user = (
+            await session.execute(select(User).where(User.email == email))
+        ).scalar_one_or_none()
+        if user is None:
+            user = User(email=email)
+            session.add(user)
+        user.password_hash = hash_password(password)
+        await session.commit()
+    print(f"  password set for {email}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Seed the local Reliability user.")
     parser.add_argument(
         "--new-key", action="store_true", help="Mint an additional API key."
     )
+    parser.add_argument(
+        "--set-password",
+        metavar="EMAIL",
+        help="Set a dashboard password for EMAIL, read from the "
+        "RELIABILITY_SET_PASSWORD environment variable (never from argv).",
+    )
     args = parser.parse_args()
+    if args.set_password:
+        import os
+
+        password = os.environ.get("RELIABILITY_SET_PASSWORD", "")
+        if len(password) < 10:
+            raise SystemExit("Set RELIABILITY_SET_PASSWORD (10+ characters).")
+        asyncio.run(set_password(args.set_password, password))
+        return
     asyncio.run(seed(args.new_key))
 
 

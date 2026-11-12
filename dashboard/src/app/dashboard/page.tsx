@@ -184,7 +184,7 @@ export default function OverviewPage() {
           />
           <Stat
             label="Estimated cost"
-            value={money(metrics?.estimated_cost)}
+            value={metrics && !metrics.cost_complete && !metrics.estimated_cost ? "unpriced" : money(metrics?.estimated_cost)}
             hint={
               metrics && !metrics.cost_complete
                 ? "partial — some models have no known price"
@@ -198,7 +198,7 @@ export default function OverviewPage() {
         <Card>
           <CardHeader
             title="Agents"
-            description="Every agent that has registered with this workspace."
+            description="Every agent the supervisor has seen, on any platform."
           />
           {agents.loading && !agents.data ? (
             <Loading />
@@ -216,7 +216,7 @@ export default function OverviewPage() {
                   <Th>Agent</Th>
                   <Th>Framework</Th>
                   <Th>Status</Th>
-                  <Th className="text-right">Executions</Th>
+                  <Th className="text-right">Sessions</Th>
                   <Th className="text-right">Success rate</Th>
                   <Th className="text-right">Tokens</Th>
                   <Th className="text-right">Incidents</Th>

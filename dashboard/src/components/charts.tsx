@@ -126,8 +126,8 @@ export function ExecutionVolumeChart({
   return (
     <Card>
       <CardHeader
-        title="Execution volume"
-        description={`Executions started in the last ${hours} hours, by outcome.`}
+        title="Session volume"
+        description={`Sessions started in the last ${hours} hours, by outcome.`}
         action={
           <Button
             size="sm"

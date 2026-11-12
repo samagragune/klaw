@@ -533,7 +533,7 @@ export const api = {
   agents: () => request<Agent[]>("/v1/agents"),
   agent: (id: string) => request<Agent>(`/v1/agents/${id}`),
 
-  executions: (params: { agent_id?: string; status?: string; active?: boolean; limit?: number } = {}) =>
+  executions: (params: { agent_id?: string; status?: string; active?: boolean; platform?: string; limit?: number } = {}) =>
     request<Execution[]>(`/v1/executions${qs(params)}`),
   execution: (id: string) => request<ExecutionDetail>(`/v1/executions/${id}`),
   events: (id: string, afterSeq?: number) =>

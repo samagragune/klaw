@@ -361,6 +361,7 @@ def transcript_model_calls(data: dict, path_key: str = "transcript_path") -> lis
                 "cache_read_tokens": int(usage.get("cache_read_input_tokens") or 0),
                 "sidechain": bool(entry.get("isSidechain")),
                 "request_id": rid,
+                "_at": entry.get("timestamp"),
             }
         with open(marker, "w", encoding="utf-8") as fh:
             fh.write(str(offset + consumed))
@@ -369,7 +370,11 @@ def transcript_model_calls(data: dict, path_key: str = "transcript_path") -> lis
         return []
     events = []
     for call in requests.values():
+        at = call.pop("_at", None)
         event = base_event(data, "MODEL_CALL", dict(call, status="ok", source="transcript"))
+        if isinstance(at, str) and at:
+            # When the request actually happened, not when it was harvested.
+            event["timestamp"] = at
         digest = hashlib.sha256(f"{session}:{call['request_id']}".encode("utf-8")).hexdigest()
         event["event_id"] = "mc-" + digest[:40]
         if call["sidechain"]:
