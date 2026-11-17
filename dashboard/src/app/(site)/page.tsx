@@ -106,7 +106,7 @@ export default function LandingPage() {
         <div className="relative mx-auto grid max-w-[1280px] items-center gap-14 px-5 py-20 md:px-8 lg:grid-cols-[1.05fr_1fr] lg:py-28">
           <div>
             <div className="bracket mb-7">The supervisor for AI agents</div>
-            <h1 className="display text-[56px] sm:text-[76px] lg:text-[88px]">
+            <h1 className="display text-[44px] sm:text-[76px] lg:text-[88px]">
               <span className="display-bold block">Your agents work.</span>
               <span className="display-light block">You stay in charge.</span>
             </h1>
@@ -341,7 +341,7 @@ export default function LandingPage() {
           <div className="hidden md:block">
             <ClawMachine width={84} label="grab your agents" />
           </div>
-          <h2 className="display text-[52px] md:text-[80px]">
+          <h2 className="display text-[40px] sm:text-[56px] md:text-[80px]">
             <span className="display-light block">Start supervising</span>
             <span className="display-bold block">in five minutes.</span>
           </h2>

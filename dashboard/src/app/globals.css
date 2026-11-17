@@ -424,3 +424,12 @@ body {
     animation: none;
   }
 }
+
+/* Phones: grid columns must be allowed to shrink below their widest line
+   (long commands scroll inside their own box instead of widening the page). */
+.grid > * {
+  min-width: 0;
+}
+.display {
+  overflow-wrap: break-word;
+}

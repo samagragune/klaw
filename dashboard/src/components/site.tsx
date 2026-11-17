@@ -153,7 +153,7 @@ export function Section({
           <ClawMark size={18} className="claw-bob text-ink" />
           <span className="bracket">{label}</span>
         </div>
-        <h2 className="display text-[44px] md:text-[64px]">
+        <h2 className="display text-[36px] sm:text-[44px] md:text-[64px]">
           <span className="display-light block">{light}</span>
           <span className="display-bold block">{bold}</span>
         </h2>
