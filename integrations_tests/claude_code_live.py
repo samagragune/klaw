@@ -1,15 +1,15 @@
 """Live integration test: real headless Claude Code sessions under supervision.
 
 Not a unit test. It drives the actual `claude` CLI in a scratch project whose
-`.claude/settings.json` has the Reliability hooks installed, while this script
+`.claude/settings.json` has the Klaw hooks installed, while this script
 plays the operator through the supervisor's REST API (approving requests,
 stopping sessions). Then it reads back what the supervisor recorded and
 checks it.
 
     python integrations_tests/claude_code_live.py --project <dir> [scenario ...]
 
-Needs: backend running, RELIABILITY_API_KEY in .env, hooks installed in the
-project (python -m reliability_companion claude-code install --project <dir>).
+Needs: backend running, KLAW_API_KEY in .env, hooks installed in the
+project (python -m klaw_companion claude-code install --project <dir>).
 Each scenario uses some of the Claude account's usage; they are kept short.
 """
 from __future__ import annotations
@@ -31,7 +31,7 @@ ENV = dict(
     for line in (ROOT / ".env").read_text(encoding="utf-8").splitlines()
     if "=" in line and not line.startswith("#")
 )
-KEY = ENV["RELIABILITY_API_KEY"].strip()
+KEY = ENV["KLAW_API_KEY"].strip()
 TOOLS = "Bash PowerShell Write Read Edit Glob Grep"
 
 

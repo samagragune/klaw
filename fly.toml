@@ -1,17 +1,17 @@
 # Backend on Fly.io. Create a Postgres cluster and attach it (sets DATABASE_URL):
 #   fly launch --no-deploy --copy-config
 #   fly postgres create && fly postgres attach <pg-app>
-#   fly secrets set SECRET_KEY=... RELIABILITY_ENV=production CORS_ORIGINS=https://<dashboard> \
+#   fly secrets set SECRET_KEY=... KLAW_ENV=production CORS_ORIGINS=https://<dashboard> \
 #                   SUPERVISOR_LLM_PROVIDER=gemini GEMINI_API_KEY=...
 #   fly deploy
-app = "reliability-supervisor"
+app = "klaw-supervisor"
 primary_region = "iad"
 
 [build]
   dockerfile = "backend/Dockerfile"
 
 [env]
-  RELIABILITY_ENV = "production"
+  KLAW_ENV = "production"
   EVENT_BUS = "memory"
   PORT = "8000"
 

@@ -1,0 +1,17 @@
+name: Feature request
+description: Suggest a capability, a platform, or a risk rule
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: The problem
+      description: What are you trying to do with your agents that Klaw doesn't help with yet?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What you'd like
+  - type: textarea
+    attributes:
+      label: Platform limits
+      description: If it involves acting on an agent, does the platform actually allow it? Links help.

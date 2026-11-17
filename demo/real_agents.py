@@ -27,11 +27,11 @@ from typing import Any, Awaitable, Callable
 
 import httpx
 
-from reliability import CaptureConfig, ExecutionCancelled, Supervisor, ToolBlocked
+from klaw import CaptureConfig, ExecutionCancelled, Supervisor, ToolBlocked
 
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 # Wikipedia asks API clients to identify themselves. Generic on purpose.
-WIKI_HEADERS = {"User-Agent": "ReliabilityDemoAgent/0.1 (local development demo)"}
+WIKI_HEADERS = {"User-Agent": "KlawDemoAgent/0.1 (local development demo)"}
 WIKI_API = "https://en.wikipedia.org/w/api.php"
 MAX_TOOL_RESULT_CHARS = 6000
 
@@ -196,7 +196,7 @@ class ModelError(RuntimeError):
 
 @dataclass
 class GeminiAgent:
-    """A minimal function-calling agent, instrumented with the Reliability SDK.
+    """A minimal function-calling agent, instrumented with the Klaw SDK.
 
     Every model call goes through ``supervisor.llm`` and every tool call
     through ``supervisor.tool``, so each one is a control checkpoint.

@@ -44,7 +44,7 @@ An operator **stop** issued from the dashboard is applied at whichever hook
 fires next — the next tool call, or even the result of the current one — and
 reported back as applied.
 
-### Privacy settings (`~/.reliability/config.json` → `capture`)
+### Privacy settings (`~/.klaw/config.json` → `capture`)
 
 | Key | Default | Effect |
 |---|---|---|
@@ -57,9 +57,9 @@ reported back as applied.
 ### Failure behaviour
 
 * Supervisor unreachable or erroring → exit 0, no output: Claude Code behaves as
-  if the hook were absent. The event is appended to `~/.reliability/spool.jsonl`
+  if the hook were absent. The event is appended to `~/.klaw/spool.jsonl`
   and delivered with the next successful call.
-* Any bug in the hook → same: logged to `~/.reliability/hook.log`, exit 0.
+* Any bug in the hook → same: logged to `~/.klaw/hook.log`, exit 0.
 * Hook timeouts: 10 s for observation events, 600 s for `PreToolUse` /
   `PermissionRequest` (approvals), 60 s for `Stop` (completion review).
 
@@ -76,15 +76,15 @@ reported back as applied.
 
 ### Troubleshooting
 
-`python -m reliability_companion doctor` checks config, hook file, Python,
+`python -m klaw_companion doctor` checks config, hook file, Python,
 backend reachability, key validity and the `claude` CLI. `status` shows the
-spool. Hook errors are in `~/.reliability/hook.log`.
+spool. Hook errors are in `~/.klaw/hook.log`.
 
 ---
 
 ## OpenAI Agents SDK
 
-**Mechanism:** `reliability.integrations.openai_agents.AgentsSupervisor`.
+**Mechanism:** `klaw.integrations.openai_agents.AgentsSupervisor`.
 
 | SDK mechanism | Used for |
 |---|---|
@@ -117,7 +117,7 @@ OpenAI-compatible endpoint using the SDK's own `set_default_openai_client` and
 
 ## Custom Python SDK
 
-The original `reliability.Supervisor` (async, cooperative checkpoints) is kept
+The original `klaw.Supervisor` (async, cooperative checkpoints) is kept
 as the custom-SDK adapter. Its legacy event names are translated to the
 protocol at ingestion. Supports observe, block, stop, pause/resume.
 

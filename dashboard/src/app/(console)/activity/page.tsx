@@ -38,7 +38,7 @@ function describe(e: ActivityEvent): string {
     case "AGENT_HANDOFF":
       return `${s(p.from_agent)} → ${s(p.to_agent)}`;
     case "MODEL_CALL":
-      return `${s(p.model)} · ${s(p.prompt_tokens)}/${s(p.completion_tokens)} tok`;
+      return `${p.model ? `${s(p.model)} · ` : ""}${s(p.prompt_tokens)}/${s(p.completion_tokens)} tok`;
     default:
       return s(p.message ?? p.reason ?? p.tool_name ?? p.status ?? "");
   }

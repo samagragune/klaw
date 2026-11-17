@@ -12,7 +12,7 @@ import asyncio
 import random
 from typing import Any
 
-from reliability import CaptureConfig, Supervisor
+from klaw import CaptureConfig, Supervisor
 
 DEMO_MODEL = "demo-model"
 

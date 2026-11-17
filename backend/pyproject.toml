@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "reliability-supervisor"
+name = "klaw-supervisor"
 version = "0.3.0"
 description = "Supervise Claude Code and OpenAI Agents SDK agents from one dashboard. Runs on your machine."
 requires-python = ">=3.11"
@@ -24,7 +24,7 @@ dependencies = [
 dev = ["pytest>=8", "pytest-asyncio>=1.0"]
 
 [project.scripts]
-reliability-supervisor = "reliability_supervisor.cli:main"
+klaw-supervisor = "klaw_supervisor.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["reliability_supervisor*"]
+include = ["klaw_supervisor*"]

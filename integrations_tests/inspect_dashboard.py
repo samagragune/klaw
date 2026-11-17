@@ -86,7 +86,7 @@ def main() -> int:
         page.screenshot(path=str(out / "00-login.png"))
         page.click('button[type="submit"]')
         page.wait_for_url("**/dashboard", timeout=20000)
-        token = page.evaluate("() => localStorage.getItem('reliability.token')")
+        token = page.evaluate("() => localStorage.getItem('klaw.token')")
         print(f"signed in: token {'present' if token else 'MISSING'}")
 
         routes = [(r, r.strip("/")) for r in STATIC_PAGES] + detail_pages(args.api, token)

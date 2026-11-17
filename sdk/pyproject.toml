@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "reliability-sdk"
+name = "klaw-sdk"
 version = "0.2.0"
 description = "Observability and execution control for autonomous AI agents."
 readme = "README.md"
@@ -15,4 +15,4 @@ openai-agents = ["openai-agents>=0.24"]
 dev = ["pytest>=8", "pytest-asyncio>=1.0"]
 
 [tool.setuptools.packages.find]
-include = ["reliability*"]
+include = ["klaw*"]

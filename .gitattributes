@@ -1,0 +1,6 @@
+# Normalise line endings in the repository; check out with the platform's defaults.
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.mp4 binary
+*.db binary

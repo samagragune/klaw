@@ -13,6 +13,16 @@ import { Badge, Button, Card, SeverityBadge, cn } from "./ui";
  * listed plainly; the `events` array is rendered as references back to the
  * exact events that triggered detection, so a claim can always be checked.
  */
+/** A list entry may be a plain value or an object (e.g. a risk finding). */
+function describeItem(item: unknown): string {
+  if (item === null || typeof item !== "object") return String(item);
+  const o = item as Record<string, unknown>;
+  const head = o.description ?? o.rule ?? o.title ?? o.name;
+  const detail = o.matched ?? o.severity ?? o.category;
+  if (head !== undefined) return detail !== undefined ? `${String(head)} — ${String(detail)}` : String(head);
+  return JSON.stringify(o);
+}
+
 function Evidence({ evidence }: { evidence: Record<string, unknown> }) {
   const events = Array.isArray(evidence.events)
     ? (evidence.events as Array<Record<string, unknown>>)
@@ -31,7 +41,7 @@ function Evidence({ evidence }: { evidence: Record<string, unknown> }) {
           <div key={key}>
             <dt className="text-[11px] text-faint">{titleCase(key)}</dt>
             <dd className="truncate font-mono text-xs text-ink" title={String(value)}>
-              {value === null ? "—" : String(value)}
+              {value === null ? "—" : typeof value === "object" ? JSON.stringify(value) : String(value)}
             </dd>
           </div>
         ))}
@@ -42,7 +52,7 @@ function Evidence({ evidence }: { evidence: Record<string, unknown> }) {
           <div className="text-[11px] text-faint">{titleCase(key)}</div>
           <div className="mt-1 flex flex-wrap gap-1">
             {(value as unknown[]).map((item, index) => (
-              <Badge key={index}>{String(item)}</Badge>
+              <Badge key={index}>{describeItem(item)}</Badge>
             ))}
           </div>
         </div>

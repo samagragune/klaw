@@ -1,4 +1,4 @@
-"""End-to-end proof that Reliability can actually control a running agent.
+"""End-to-end proof that Klaw can actually control a running agent.
 
 Runs the looping agent in this process, then drives the control plane over
 HTTP exactly as the dashboard would, checking at each step that the *runtime*
@@ -29,7 +29,7 @@ load_env()
 import httpx  # noqa: E402
 
 from agents import run_loop  # noqa: E402
-from reliability import ExecutionCancelled  # noqa: E402
+from klaw import ExecutionCancelled  # noqa: E402
 
 AGENT_NAME = "infinite-loop-agent"
 TIMEOUT = 45.0
@@ -64,7 +64,7 @@ async def wait_for(predicate, timeout: float = TIMEOUT, interval: float = 0.4):
 
 async def main() -> int:
     if not API_KEY:
-        print("RELIABILITY_API_KEY is not set. Run `python -m reliability_supervisor.seed` in backend/.")
+        print("KLAW_API_KEY is not set. Run `python -m klaw_supervisor.seed` in backend/.")
         return 1
 
     checks = Checks()
@@ -79,7 +79,7 @@ async def main() -> int:
         rows = (await client.get(f"/v1/executions/{execution_id}/interventions")).json()
         return next(r for r in rows if r["id"] == intervention_id)
 
-    print("\n  Reliability - execution control acceptance run")
+    print("\n  Klaw - execution control acceptance run")
     print("  " + "=" * 62)
 
     # Run the agent long enough to be interrupted several times.

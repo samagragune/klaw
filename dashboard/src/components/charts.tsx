@@ -142,8 +142,8 @@ export function ExecutionVolumeChart({
 
       {total === 0 ? (
         <EmptyState
-          title="No executions in this window"
-          description="Run a demo agent to populate the timeline: python demo/run_demo.py healthy"
+          title="No sessions in this window"
+          description="Sessions started in the last 24 hours appear here as your agents run."
         />
       ) : view === "table" ? (
         <Table>

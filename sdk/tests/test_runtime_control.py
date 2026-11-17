@@ -10,14 +10,14 @@ from typing import Any
 
 import pytest
 
-from reliability import ExecutionCancelled, Supervisor, ToolBlocked
-from reliability.control import ControlState
+from klaw import ExecutionCancelled, Supervisor, ToolBlocked
+from klaw.control import ControlState
 
 pytestmark = pytest.mark.asyncio
 
 
 class FakeTransport:
-    """Stands in for ``reliability.transport.Transport``."""
+    """Stands in for ``klaw.transport.Transport``."""
 
     def __init__(self) -> None:
         self.events: list[tuple[str, dict[str, Any]]] = []

@@ -5,6 +5,7 @@ import Script from "next/script";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { auth, getApiUrl, setApiUrl, setToken } from "@/lib/api";
 import { CopyCode, LogoMark } from "@/components/site";
+import { ClawMachine } from "@/components/claw";
 import { INSTALL_SUPERVISOR, START_SUPERVISOR } from "@/lib/site-constants";
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
@@ -28,7 +29,7 @@ function friendly(err: unknown): string {
   const message = err instanceof Error ? err.message : "Could not sign in";
   if (message === "Failed to fetch" || message.includes("NetworkError")) {
     return /localhost|127\.0\.0\.1|\[::1\]/.test(getApiUrl())
-      ? `Couldn't reach your supervisor at ${getApiUrl()}. Start it with "reliability-supervisor start", and allow access to apps on this device if your browser asks.`
+      ? `Couldn't reach your supervisor at ${getApiUrl()}. Start it with "klaw-supervisor start", and allow access to apps on this device if your browser asks.`
       : `Couldn't reach the supervisor at ${getApiUrl()}.`;
   }
   return message;
@@ -120,7 +121,7 @@ export default function LoginPage() {
       <div className="grid-bg hidden flex-col justify-between border-r border-line p-12 lg:flex">
         <Link href="/" className="flex items-center gap-2.5 text-ink">
           <LogoMark />
-          <span className="display display-bold text-[22px]">Reliability</span>
+          <span className="display display-bold text-[22px]">Klaw</span>
         </Link>
         <div>
           <div className="bracket mb-6">Sign in to your supervisor</div>
@@ -133,15 +134,19 @@ export default function LoginPage() {
             browser — nothing passes through anyone else.
           </p>
         </div>
-        <div className="label-mono text-faint">runs locally · open source</div>
+        <div className="flex items-end justify-between">
+          <div className="label-mono text-faint">runs locally · open source</div>
+          <ClawMachine width={70} />
+        </div>
       </div>
 
       {/* Form side */}
-      <div className="flex items-center justify-center px-5 py-12">
-        <div className="w-full max-w-[400px]">
+      <div className="relative flex items-center justify-center overflow-hidden px-5 py-12">
+        <div className="glow glow-accent glow-drift right-[-20%] top-[10%] size-[520px]" />
+        <div className="glass-strong relative w-full max-w-[440px] p-8">
           <Link href="/" className="mb-10 flex items-center gap-2.5 text-ink lg:hidden">
             <LogoMark />
-            <span className="display display-bold text-[22px]">Reliability</span>
+            <span className="display display-bold text-[22px]">Klaw</span>
           </Link>
           <div className="bracket mb-3">{mode === "signin" ? "Sign in" : "Create account"}</div>
           <h2 className="display display-bold text-[40px]">
@@ -149,7 +154,7 @@ export default function LoginPage() {
           </h2>
 
           {/* Supervisor address + status */}
-          <div className="mt-6 border border-line bg-panel px-4 py-3">
+          <div className="glass mt-6 px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <span className="label-mono text-faint">Supervisor</span>
               <span className="label-mono flex items-center gap-1.5" style={{ color: status.color }}>

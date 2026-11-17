@@ -24,10 +24,10 @@ const UL = ({ items }: { items: ReactNode[] }) => (
   </ul>
 );
 const Note = ({ children }: { children: ReactNode }) => (
-  <div className="my-6 border-l-2 border-[var(--accent)] bg-panel px-5 py-4 text-sm leading-relaxed text-muted">{children}</div>
+  <div className="glass my-6 border-l-2 border-l-[var(--accent)] px-5 py-4 text-sm leading-relaxed text-muted">{children}</div>
 );
 const Table = ({ head, rows }: { head: string[]; rows: ReactNode[][] }) => (
-  <div className="my-6 overflow-x-auto border border-line">
+  <div className="glass my-6 overflow-x-auto">
     <table className="w-full min-w-[520px] text-sm">
       <thead>
         <tr className="border-b border-line bg-panel">
@@ -58,7 +58,7 @@ const Code = ({ code }: { code: string }) => (
   </div>
 );
 const Snippet = ({ code }: { code: string }) => (
-  <pre className="terminal my-5 overflow-x-auto border border-line bg-panel px-4 py-3 text-ink">{code}</pre>
+  <pre className="terminal glass my-5 overflow-x-auto px-4 py-3 text-ink">{code}</pre>
 );
 
 export type DocPage = { slug: string; group: string; title: string; summary: string; body: ReactNode };
@@ -68,11 +68,11 @@ export const DOCS: DocPage[] = [
     slug: "",
     group: "Start here",
     title: "Introduction",
-    summary: "What Reliability is, how the pieces fit, and who it is for.",
+    summary: "What Klaw is, how the pieces fit, and who it is for.",
     body: (
       <>
         <P>
-          Reliability is a supervisor for AI agents. Your agents keep running where they already run —
+          Klaw is a supervisor for AI agents. Your agents keep running where they already run —
           Claude Code in your terminal, an OpenAI Agents SDK app on your server — and report what they
           do to a supervisor you run yourself. The supervisor watches for loops, risky operations,
           stalls and work that misses its objective, and acts on them when your policy allows.
@@ -112,7 +112,7 @@ export const DOCS: DocPage[] = [
     body: (
       <>
         <H>1. Run the supervisor</H>
-        <P>Requires Python 3.11 or newer. The first start creates its own database and secret in <C>~/.reliability/supervisor</C>.</P>
+        <P>Requires Python 3.11 or newer. The first start creates its own database and secret in <C>~/.klaw/supervisor</C>.</P>
         <Code code={`${INSTALL_SUPERVISOR}\n${START_SUPERVISOR}`} />
         <H>2. Create your account</H>
         <P>
@@ -122,7 +122,7 @@ export const DOCS: DocPage[] = [
         </P>
         <H>3. Connect Claude Code</H>
         <P>In the dashboard open <b>Integrations</b>, choose Claude Code and create a key. Then, in the project you want supervised:</P>
-        <Code code={`${INSTALL_COMPANION}\nreliability-companion setup --api-url http://127.0.0.1:8000 --key rl_int_…`} />
+        <Code code={`${INSTALL_COMPANION}\nklaw-companion setup --api-url http://127.0.0.1:8000 --key rl_int_…`} />
         <P>It shows the change to <C>.claude/settings.json</C> and asks before writing. Start Claude Code in that project; the session appears under <b>Sessions</b> within seconds.</P>
         <H>4. Give it some authority</H>
         <P>
@@ -148,14 +148,14 @@ export const DOCS: DocPage[] = [
           rows={[
             [<C key="a">--port</C>, "8000", "Port to listen on"],
             [<C key="b">--host</C>, "127.0.0.1", "Interface. The default accepts connections from this machine only."],
-            [<C key="c">--data-dir</C>, "~/.reliability/supervisor", "Database, secret and config"],
+            [<C key="c">--data-dir</C>, "~/.klaw/supervisor", "Database, secret and config"],
             [<C key="d">--allow-origin</C>, "this website, localhost:3000", "Extra dashboard origins allowed to connect"],
           ]}
         />
         <H>Configuration</H>
         <P>Optional settings go in <C>config.env</C> inside the data directory:</P>
         <Snippet code={"# enable model-based output review and the supervisor chat\nGEMINI_API_KEY=...\n# accept Google sign-in tokens for this client ID\nGOOGLE_CLIENT_IDS=...apps.googleusercontent.com\n# turn off sign-up once your accounts exist\nALLOW_SIGNUP=false"} />
-        <P>Your data is one file, <C>reliability.db</C>. Back it up by copying it.</P>
+        <P>Your data is one file, <C>klaw.db</C>. Back it up by copying it.</P>
         <Note>Agents on other machines need to reach the supervisor. Run it on a machine they can reach, or expose it with a tunnel (for example Cloudflare's free quick tunnel) and use that address everywhere.</Note>
       </>
     ),
@@ -167,8 +167,8 @@ export const DOCS: DocPage[] = [
     summary: "One command; what gets sent; what each decision does inside Claude Code.",
     body: (
       <>
-        <P>Reliability connects through Claude Code&apos;s own lifecycle hooks, installed per project (or for every project with <C>--user</C>).</P>
-        <Code code={`${INSTALL_COMPANION}\nreliability-companion setup --api-url http://127.0.0.1:8000 --key rl_int_…`} />
+        <P>Klaw connects through Claude Code&apos;s own lifecycle hooks, installed per project (or for every project with <C>--user</C>).</P>
+        <Code code={`${INSTALL_COMPANION}\nklaw-companion setup --api-url http://127.0.0.1:8000 --key rl_int_…`} />
         <H>What each decision does</H>
         <Table
           head={["Decision", "Before a tool runs", "When Claude wants to finish"]}
@@ -184,16 +184,16 @@ export const DOCS: DocPage[] = [
         <H>What is sent</H>
         <UL
           items={[
-            "Tool names and inputs, with secret-looking keys redacted — needed for risk rules. Turn off with capture.tool_input in ~/.reliability/config.json.",
+            "Tool names and inputs, with secret-looking keys redacted — needed for risk rules. Turn off with capture.tool_input in ~/.klaw/config.json.",
             "A fingerprint of each tool result, not the result itself.",
             "Prompts and final messages (each can be turned off).",
             "Token usage, read from Claude Code's local transcript (best effort).",
           ]}
         />
         <H>If the supervisor is down</H>
-        <P>The hook exits silently and Claude Code carries on exactly as if it were not installed. Events are queued in <C>~/.reliability/spool.jsonl</C> and delivered later.</P>
+        <P>The hook exits silently and Claude Code carries on exactly as if it were not installed. Events are queued in <C>~/.klaw/spool.jsonl</C> and delivered later.</P>
         <H>Remove it</H>
-        <Code code="reliability-companion claude-code uninstall --project ." />
+        <Code code="klaw-companion claude-code uninstall --project ." />
       </>
     ),
   },
@@ -206,9 +206,9 @@ export const DOCS: DocPage[] = [
       <>
         <Code code={INSTALL_SDK} />
         <P>Set two environment variables from the key you created under Integrations:</P>
-        <Snippet code={"RELIABILITY_API_URL=http://127.0.0.1:8000\nRELIABILITY_INTEGRATION_KEY=rl_int_..."} />
+        <Snippet code={"KLAW_API_URL=http://127.0.0.1:8000\nKLAW_INTEGRATION_KEY=rl_int_..."} />
         <P>Then run your agent through the supervisor:</P>
-        <Snippet code={`from reliability.integrations.openai_agents import AgentsSupervisor
+        <Snippet code={`from klaw.integrations.openai_agents import AgentsSupervisor
 
 supervisor = AgentsSupervisor(app_name="support-bot")
 result = await supervisor.run(triage_agent, user_input)   # instead of Runner.run`} />
@@ -236,7 +236,7 @@ result = await Runner.run(triage_agent, user_input, hooks=supervisor.hooks())`} 
     body: (
       <>
         <Code code={INSTALL_SDK_ONLY} />
-        <Snippet code={`from reliability import Supervisor
+        <Snippet code={`from klaw import Supervisor
 
 supervisor = Supervisor(api_key="rl_int_...", agent_id="research-agent",
                         api_url="http://127.0.0.1:8000")
@@ -268,7 +268,7 @@ async def research():
           ["Approvals", "Answer agents that are waiting on you"],
           ["Detected issues", "Loops, failures, risky operations and budget breaches, with evidence"],
           ["Interventions", "Every decision the supervisor made, and why"],
-          ["Reliability", "Scores and what supervision itself costs"],
+          ["Klaw", "Scores and what supervision itself costs"],
           ["Integrations", "Connect environments; keys, setup and limits"],
           ["Policies", "Mode, limits, risk rules, approvals and review"],
         ]}
@@ -374,8 +374,8 @@ async def research():
       <Table
         head={["Symptom", "Fix"]}
         rows={[
-          ["Sign-in says it can't reach the supervisor", "Start it (reliability-supervisor start) and allow local network access when the browser asks, or in the site settings next to the address bar."],
-          ["Sessions don't appear", "Run reliability-companion doctor in the project. Check ~/.reliability/hook.log."],
+          ["Sign-in says it can't reach the supervisor", "Start it (klaw-supervisor start) and allow local network access when the browser asks, or in the site settings next to the address bar."],
+          ["Sessions don't appear", "Run klaw-companion doctor in the project. Check ~/.klaw/hook.log."],
           ["Google button is missing", "Add GOOGLE_CLIENT_IDS to the supervisor's config.env and restart it."],
           ["Agents on another machine can't connect", "The supervisor listens on 127.0.0.1 by default. Use a tunnel, or --host 0.0.0.0 on a trusted network."],
         ]}

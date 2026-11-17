@@ -1,4 +1,4 @@
-# reliability-sdk
+# klaw-sdk
 
 Observability **and execution control** for autonomous Python agents.
 
@@ -9,7 +9,7 @@ pip install -e ./sdk
 ## Minimal integration
 
 ```python
-from reliability import Supervisor
+from klaw import Supervisor
 
 supervisor = Supervisor(api_key="rl_live_…", agent_id="research-agent")
 
@@ -45,7 +45,7 @@ Only after enforcing does the SDK report the command as **applied**. A command
 that never reaches a checkpoint stays `pending`, and the dashboard says so.
 
 ```python
-from reliability import ExecutionCancelled
+from klaw import ExecutionCancelled
 
 try:
     await research()
@@ -62,7 +62,7 @@ fingerprint of tool arguments is transmitted — enough for the backend to detec
 identical repeated calls, not enough to reconstruct them.
 
 ```python
-from reliability import CaptureConfig, Supervisor
+from klaw import CaptureConfig, Supervisor
 
 Supervisor(..., capture=CaptureConfig.metadata_only())   # names, counts, timings
 Supervisor(..., capture=CaptureConfig(capture_tool_args=True))

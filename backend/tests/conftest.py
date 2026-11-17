@@ -9,12 +9,12 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-TEST_DB = Path(__file__).resolve().parent / "test_reliability.db"
+TEST_DB = Path(__file__).resolve().parent / "test_klaw.db"
 
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{TEST_DB.as_posix()}"
 os.environ["EVENT_BUS"] = "memory"
 os.environ["DEV_SESSION_TOKEN"] = "test-dashboard-token"
-os.environ["DEV_USER_EMAIL"] = "test@reliability.local"
+os.environ["DEV_USER_EMAIL"] = "test@klaw.local"
 os.environ["SUPERVISOR_LLM_PROVIDER"] = "none"
 os.environ["SUPERVISOR_LLM_API_KEY"] = ""
 
@@ -22,10 +22,10 @@ import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 
-from reliability_supervisor.db import Base, SessionLocal, engine  # noqa: E402
-from reliability_supervisor.main import app  # noqa: E402
-from reliability_supervisor.models import ApiKey, User  # noqa: E402
-from reliability_supervisor.security import generate_api_key  # noqa: E402
+from klaw_supervisor.db import Base, SessionLocal, engine  # noqa: E402
+from klaw_supervisor.main import app  # noqa: E402
+from klaw_supervisor.models import ApiKey, User  # noqa: E402
+from klaw_supervisor.security import generate_api_key  # noqa: E402
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -44,7 +44,7 @@ async def accounts() -> dict:
     """Two separate tenants, so isolation can be tested for real."""
     created = {}
     async with SessionLocal() as session:
-        for label, email in (("primary", "test@reliability.local"), ("other", "other@example.com")):
+        for label, email in (("primary", "test@klaw.local"), ("other", "other@example.com")):
             user = User(email=email)
             session.add(user)
             await session.flush()

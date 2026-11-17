@@ -103,6 +103,10 @@ export default function OverviewPage() {
               </Card>
             ))}
           </div>
+        ) : platforms.loading || !platforms.data ? (
+          <Card>
+            <Loading label="Loading platforms" />
+          </Card>
         ) : (
           <Card>
             <EmptyState

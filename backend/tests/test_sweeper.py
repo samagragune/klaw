@@ -6,9 +6,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import select
 
-from reliability_supervisor.db import SessionLocal
-from reliability_supervisor.models import Execution, ExecutionStatus, Intervention, InterventionStatus
-from reliability_supervisor.sweeper import last_contact, reap_if_stale, sweep_once
+from klaw_supervisor.db import SessionLocal
+from klaw_supervisor.models import Execution, ExecutionStatus, Intervention, InterventionStatus
+from klaw_supervisor.sweeper import last_contact, reap_if_stale, sweep_once
 
 pytestmark = pytest.mark.asyncio
 

@@ -4,6 +4,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import type { ReactNode } from "react";
 import type { AgentStatus, ExecutionStatus, Severity } from "@/lib/api";
+import { ClawSpinner } from "./claw";
 
 export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
@@ -16,7 +17,7 @@ export function Card({
 }: { children: ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("rounded-lg border border-line bg-panel", className)}
+      className={cn("glass", className)}
       {...rest}
     >
       {children}
@@ -344,8 +345,9 @@ export function ErrorState({ error, retry }: { error: string; retry?: () => void
 
 export function Loading({ label = "Loading" }: { label?: string }) {
   return (
-    <div className="px-6 py-12 text-center text-xs text-faint">
-      <span className="pulse">{label}…</span>
+    <div className="flex items-center justify-center gap-2.5 px-6 py-12 text-xs text-faint">
+      <ClawSpinner size={18} />
+      <span>{label}…</span>
     </div>
   );
 }

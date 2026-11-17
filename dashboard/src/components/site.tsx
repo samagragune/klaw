@@ -5,26 +5,19 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Check, Copy, GitBranch } from "lucide-react";
 
 import { REPO_URL } from "@/lib/site-constants";
+import { ClawMark } from "./claw";
 
 /* ----------------------------------------------------------------- brand */
 
 export function LogoMark({ size = 22 }: { size?: number }) {
-  // A square split into a watched cell (accent) and three plain ones.
-  return (
-    <svg width={size} height={size} viewBox="0 0 22 22" aria-hidden="true">
-      <rect x="1" y="1" width="9" height="9" fill="var(--accent)" />
-      <rect x="12" y="1" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="1" y="12" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="12" y="12" width="9" height="9" fill="currentColor" />
-    </svg>
-  );
+  return <ClawMark size={size + 4} />;
 }
 
 export function Wordmark() {
   return (
     <Link href="/" className="flex items-center gap-2.5 text-ink">
       <LogoMark />
-      <span className="display display-bold text-[22px] tracking-wide">Reliability</span>
+      <span className="display display-bold text-[22px] tracking-wide">Klaw</span>
     </Link>
   );
 }
@@ -40,7 +33,7 @@ const NAV = [
 
 export function SiteNav() {
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-black/85 backdrop-blur">
+    <header className="glass-strong sticky top-0 z-40 border-x-0 border-t-0">
       <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-8 px-5 md:px-8">
         <Wordmark />
         <nav className="hidden items-center gap-7 md:flex">
@@ -123,7 +116,7 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-line">
         <div className="label-mono mx-auto flex max-w-[1280px] flex-wrap justify-between gap-3 px-5 py-5 text-faint md:px-8">
-          <span>Reliability · open source</span>
+          <span>Klaw · open source</span>
           <span>Your data stays on your supervisor</span>
         </div>
       </div>
@@ -151,9 +144,15 @@ export function Section({
   className?: string;
 }) {
   return (
-    <section id={id} className={`border-b border-line ${className}`}>
-      <div className="mx-auto max-w-[1280px] px-5 py-20 md:px-8 md:py-28">
-        <div className="bracket mb-6">{label}</div>
+    <section id={id} className={`relative overflow-hidden border-b border-line ${className}`}>
+      <div className="glow glow-accent glow-drift -right-40 top-10 size-[520px]" />
+      <div className="glow glow-accent left-[22%] top-[52%] size-[480px] opacity-60" />
+      <div className="glow glow-white -left-40 bottom-0 size-[420px]" />
+      <div className="relative mx-auto max-w-[1280px] px-5 py-20 md:px-8 md:py-28">
+        <div className="mb-6 flex items-center gap-3">
+          <ClawMark size={18} className="claw-bob text-ink" />
+          <span className="bracket">{label}</span>
+        </div>
         <h2 className="display text-[44px] md:text-[64px]">
           <span className="display-light block">{light}</span>
           <span className="display-bold block">{bold}</span>
@@ -168,7 +167,7 @@ export function Section({
 export function CopyCode({ code, prompt = "$" }: { code: string; prompt?: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="group flex items-start gap-3 border border-line bg-panel px-4 py-3">
+    <div className="glass group flex items-start gap-3 px-4 py-3">
       <pre className="terminal min-w-0 flex-1 overflow-x-auto whitespace-pre text-ink">
         {code.split("\n").map((line, i) => (
           <div key={i}>
@@ -200,7 +199,7 @@ type Line = { t: string; tone?: "ok" | "warn" | "bad" | "dim" | "accent" };
 
 /** Decisions taken from live runs against real Claude Code and Agents SDK agents. */
 const FEED: Line[] = [
-  { t: "$ reliability-supervisor start", tone: "accent" },
+  { t: "$ klaw-supervisor start", tone: "accent" },
   { t: "listening on 127.0.0.1:8000 · sqlite · 2 integrations", tone: "dim" },
   { t: "claude_code   PROMPT    Delete build_artifacts recursively" },
   { t: "claude_code   TOOL      PowerShell Remove-Item -Recurse -Force" },
@@ -234,7 +233,7 @@ export function SupervisorTerminal() {
       accent: "text-[var(--accent)]",
     })[t ?? "dim"] ?? "";
   return (
-    <div className="ticks border border-line-strong bg-panel">
+    <div className="ticks glass-strong">
       <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
         <div className="flex gap-1.5">
           <span className="size-2 rounded-full bg-line-strong" />

@@ -56,7 +56,7 @@ async def test_dashboard_session_token_resolves_to_the_dev_user(client):
         "/v1/config", headers={"Authorization": "Bearer test-dashboard-token"}
     )
     assert response.status_code == 200
-    assert response.json()["user"]["email"] == "test@reliability.local"
+    assert response.json()["user"]["email"] == "test@klaw.local"
 
 
 async def test_one_tenant_cannot_see_or_touch_another(client, other_client):

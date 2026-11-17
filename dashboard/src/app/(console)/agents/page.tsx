@@ -78,7 +78,7 @@ export default function AgentsPage() {
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-[11px] text-faint">Reliability</dt>
+                      <dt className="text-[11px] text-faint">Klaw</dt>
                       <dd className="text-sm tabular-nums text-ink">
                         <ScoreBadge score={agent.reliability_score} />
                       </dd>

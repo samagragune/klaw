@@ -90,7 +90,7 @@ function summarise(event: TraceEvent): string {
     case "TOOL_CALL_BLOCKED":
       return `${text(p.tool_name)} not run${p.by ? ` (${text(p.by)})` : ""}${p.reason ? ` · ${text(p.reason)}` : ""}`;
     case "MODEL_CALL":
-      return `${text(p.model)} · ${text(p.prompt_tokens)} in / ${text(p.completion_tokens)} out${
+      return `${p.model ? `${text(p.model)} · ` : ""}${text(p.prompt_tokens)} in / ${text(p.completion_tokens)} out${
         p.status === "error" ? ` · ${text(p.error)}` : ""
       }`;
     case "SUBAGENT_STARTED":

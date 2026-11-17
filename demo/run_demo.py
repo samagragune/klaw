@@ -1,10 +1,10 @@
-"""Run a demonstration agent against a local Reliability backend.
+"""Run a demonstration agent against a local Klaw backend.
 
     python demo/run_demo.py loop
     python demo/run_demo.py --list
     python demo/run_demo.py loop --autopilot   # let the supervisor pause it
 
-Reads RELIABILITY_API_KEY and RELIABILITY_API_URL from the project .env.
+Reads KLAW_API_KEY and KLAW_API_URL from the project .env.
 """
 from __future__ import annotations
 
@@ -36,10 +36,10 @@ load_env()
 import httpx  # noqa: E402  (after load_env, so the base URL is available)
 
 from agents import SCENARIOS  # noqa: E402
-from reliability import ExecutionCancelled  # noqa: E402
+from klaw import ExecutionCancelled  # noqa: E402
 
-API_URL = os.environ.get("RELIABILITY_API_URL", "http://127.0.0.1:8000")
-API_KEY = os.environ.get("RELIABILITY_API_KEY", "")
+API_URL = os.environ.get("KLAW_API_URL", "http://127.0.0.1:8000")
+API_KEY = os.environ.get("KLAW_API_KEY", "")
 
 
 async def set_autopilot(agent_name: str) -> None:
@@ -137,7 +137,7 @@ async def report(agent_name: str) -> None:
 
 
 async def main() -> int:
-    parser = argparse.ArgumentParser(description="Run a Reliability demo agent.")
+    parser = argparse.ArgumentParser(description="Run a Klaw demo agent.")
     parser.add_argument("scenario", nargs="?", choices=sorted(SCENARIOS), help="which agent to run")
     parser.add_argument("--list", action="store_true", help="list the scenarios")
     parser.add_argument(
@@ -155,7 +155,7 @@ async def main() -> int:
         return 0
 
     if not API_KEY:
-        print("RELIABILITY_API_KEY is not set. Run: python -m reliability_supervisor.seed (in backend/)")
+        print("KLAW_API_KEY is not set. Run: python -m klaw_supervisor.seed (in backend/)")
         return 1
 
     scenario = SCENARIOS[args.scenario]

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * Reliability design system.
+ * Klaw design system.
  * Black canvas, near-white type, one hot accent. Square corners and 1px
  * lines do the structural work; condensed uppercase display type for
  * headlines, monospace for labels, data and anything a machine said.
@@ -276,10 +276,151 @@ body {
   animation: caret 1s step-end infinite;
 }
 
+/* ------------------------------------------------------------- glass */
+
+/* Frosted panel: translucent, blurred, hairline border, top highlight. */
+.glass {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015) 60%), rgba(14, 14, 14, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 20px 60px -30px rgba(0, 0, 0, 0.9);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+.glass-strong {
+  background: rgba(12, 12, 12, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
+}
+.glass-hover {
+  transition: border-color 0.2s, background-color 0.2s, transform 0.2s;
+}
+.glass-hover:hover {
+  border-color: rgba(255, 74, 28, 0.45);
+  background: rgba(22, 22, 22, 0.55);
+}
+
+/* Soft light behind glass so there is something to frost. */
+.glow {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  filter: blur(80px);
+  opacity: 0.9;
+}
+.glow-accent {
+  background: radial-gradient(circle, rgba(255, 74, 28, 0.5), rgba(255, 74, 28, 0) 68%);
+}
+.glow-white {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 70%);
+}
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(30px, -20px); }
+}
+.glow-drift {
+  animation: drift 18s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------- pixel claw */
+
+.claw-machine {
+  color: var(--text);
+}
+.claw-machine svg *,
+.claw-snap svg * {
+  transform-box: fill-box;
+}
+.claw-head {
+  animation: claw-drop 6s steps(24, end) infinite;
+}
+.claw-cable {
+  transform-origin: top;
+  animation: claw-cable 6s steps(24, end) infinite;
+}
+.claw-machine .claw-open {
+  animation: claw-open 6s step-end infinite;
+}
+.claw-machine .claw-closed {
+  animation: claw-closed 6s step-end infinite;
+}
+.claw-prize {
+  animation: claw-prize 6s step-end infinite;
+}
+.claw-floor-prize {
+  animation: claw-floor 6s step-end infinite;
+}
+@keyframes claw-drop {
+  0%, 8% { transform: translateY(0); }
+  34%, 46% { transform: translateY(15.5px); }
+  72%, 100% { transform: translateY(0); }
+}
+@keyframes claw-cable {
+  0%, 8% { transform: scaleY(1); }
+  34%, 46% { transform: scaleY(3.6); }
+  72%, 100% { transform: scaleY(1); }
+}
+@keyframes claw-open {
+  0% { opacity: 1; }
+  38% { opacity: 0; }
+  84% { opacity: 1; }
+}
+@keyframes claw-closed {
+  0% { opacity: 0; }
+  38% { opacity: 1; }
+  84% { opacity: 0; }
+}
+@keyframes claw-prize {
+  0% { opacity: 0; }
+  38% { opacity: 1; }
+  84% { opacity: 0; }
+}
+@keyframes claw-floor {
+  0% { opacity: 1; }
+  38% { opacity: 0; }
+  94% { opacity: 1; }
+}
+/* small snapping claw */
+.claw-snap .claw-open {
+  animation: claw-snap-open 1.2s step-end infinite;
+}
+.claw-snap .claw-closed {
+  animation: claw-snap-closed 1.2s step-end infinite;
+}
+@keyframes claw-snap-open {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+}
+@keyframes claw-snap-closed {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+}
+/* pixel bob for decorative claws */
+@keyframes claw-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.claw-bob {
+  animation: claw-bob 2.4s steps(4, end) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pulse,
   .row-in,
-  .caret::after {
+  .caret::after,
+  .glow-drift,
+  .claw-head,
+  .claw-cable,
+  .claw-machine .claw-open,
+  .claw-machine .claw-closed,
+  .claw-prize,
+  .claw-floor-prize,
+  .claw-snap .claw-open,
+  .claw-snap .claw-closed,
+  .claw-bob {
     animation: none;
   }
 }

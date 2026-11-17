@@ -21,10 +21,10 @@ import {
   Th,
 } from "@/components/ui";
 
-const SNIPPET = `from reliability import Supervisor
+const SNIPPET = `from klaw import Supervisor
 
 supervisor = Supervisor(
-    api_key="YOUR_API_KEY",      # or set RELIABILITY_API_KEY
+    api_key="YOUR_API_KEY",      # or set KLAW_API_KEY
     agent_id="research-agent",   # stable name; registration is idempotent
     api_url="${getApiUrl()}",
 )

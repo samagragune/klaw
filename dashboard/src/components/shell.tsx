@@ -95,11 +95,11 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-line bg-panel md:flex">
+      <aside className="glass-strong sticky top-0 z-10 hidden h-screen w-56 shrink-0 flex-col border-y-0 border-l-0 md:flex">
         <Link href="/" className="flex items-center gap-2.5 border-b border-line px-4 py-4 text-ink">
           <LogoMark size={20} />
           <div className="min-w-0">
-            <div className="display display-bold truncate text-[19px] leading-none">Reliability</div>
+            <div className="display display-bold truncate text-[19px] leading-none">Klaw</div>
             <div className="label-mono mt-1 truncate text-[9.5px] text-faint">supervisor console</div>
           </div>
         </Link>
@@ -160,7 +160,9 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1">
+      <main className="relative min-w-0 flex-1 overflow-x-hidden">
+        <div className="glow glow-accent glow-drift pointer-events-none fixed right-[-12%] top-[-10%] -z-10 size-[620px] opacity-35" />
+        <div className="glow glow-white pointer-events-none fixed bottom-[-15%] left-[20%] -z-10 size-[520px] opacity-40" />
         <BackendStatus />
         {children}
       </main>
@@ -184,7 +186,15 @@ export function PageHeader({
       {breadcrumb ? <div className="mb-1.5 text-xs text-faint">{breadcrumb}</div> : null}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="display display-bold text-[34px] text-ink">{title}</h1>
+          <h1
+            className={cn(
+              "display display-bold line-clamp-2 text-ink",
+              typeof title === "string" && title.length > 48 ? "text-[24px] leading-tight" : "text-[34px]",
+            )}
+            title={typeof title === "string" ? title : undefined}
+          >
+            {title}
+          </h1>
           {description ? (
             <p className="mt-1 max-w-2xl text-sm text-muted">{description}</p>
           ) : null}

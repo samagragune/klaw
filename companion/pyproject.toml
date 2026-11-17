@@ -3,14 +3,14 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "reliability-companion"
+name = "klaw-companion"
 version = "0.2.0"
-description = "Connects local agent environments (Claude Code) to a Reliability supervisor."
+description = "Connects local agent environments (Claude Code) to a Klaw supervisor."
 requires-python = ">=3.9"
 dependencies = []
 
 [project.scripts]
-reliability-companion = "reliability_companion.cli:main"
+klaw-companion = "klaw_companion.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["reliability_companion*"]
+include = ["klaw_companion*"]

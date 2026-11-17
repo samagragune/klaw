@@ -39,3 +39,4 @@ dashboard/.next/
 
 .vercel
 .env*
+!.env.example

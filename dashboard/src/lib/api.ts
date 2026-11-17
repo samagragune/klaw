@@ -1,13 +1,13 @@
 /**
- * Typed client for the Reliability backend.
+ * Typed client for the Klaw backend.
  *
  * Types mirror `backend/app/schemas.py`. When that file changes, change this
  * one in the same commit - the contract is only useful if both ends agree.
  */
 
 const DEFAULT_API_URL =
-  process.env.NEXT_PUBLIC_RELIABILITY_API_URL ?? "http://127.0.0.1:8000";
-const API_URL_KEY = "reliability.api_url";
+  process.env.NEXT_PUBLIC_KLAW_API_URL ?? "http://127.0.0.1:8000";
+const API_URL_KEY = "klaw.api_url";
 
 /**
  * The supervisor backend this browser talks to. Defaults to the build-time
@@ -31,17 +31,17 @@ export function setApiUrl(url: string) {
   else window.localStorage.setItem(API_URL_KEY, clean);
 }
 
-const TOKEN_KEY = "reliability.token";
+const TOKEN_KEY = "klaw.token";
 
 export function getToken(): string {
   if (typeof window === "undefined") return "";
   try {
-    // NEXT_PUBLIC_RELIABILITY_TOKEN is a local-development convenience only:
+    // NEXT_PUBLIC_KLAW_TOKEN is a local-development convenience only:
     // anything NEXT_PUBLIC_ is readable by whoever loads the page, so a
     // deployed dashboard must never set it. Deployments sign in instead.
     return (
       window.localStorage.getItem(TOKEN_KEY) ??
-      process.env.NEXT_PUBLIC_RELIABILITY_TOKEN ??
+      process.env.NEXT_PUBLIC_KLAW_TOKEN ??
       ""
     );
   } catch {

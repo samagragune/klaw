@@ -1,6 +1,6 @@
 # Running it for free: dashboard on Vercel, supervisor on your machine
 
-The supervisor stores everything in one SQLite file (`data/reliability.db`)
+The supervisor stores everything in one SQLite file (`data/klaw.db`)
 — no database service. It runs wherever you start it; the dashboard is a
 static site that can live on Vercel's free tier and talk to it.
 
@@ -8,8 +8,8 @@ static site that can live on Vercel's free tier and talk to it.
 
 ```bash
 cd backend
-python -m reliability_supervisor.seed                                  # first time: creates the database file
-python -m uvicorn reliability_supervisor.main:app --host 127.0.0.1 --port 8000
+python -m klaw_supervisor.seed                                  # first time: creates the database file
+python -m uvicorn klaw_supervisor.main:app --host 127.0.0.1 --port 8000
 ```
 
 `.env` at the repo root needs `SECRET_KEY` (and `GEMINI_API_KEY` +
@@ -34,10 +34,10 @@ The dashboard runs in your browser, so the browser must reach the supervisor:
 1. vercel.com → sign in with GitHub → **Add New → Project** → import this
    repository.
 2. **Root Directory:** `dashboard`. Framework: Next.js.
-3. Optional environment variable `NEXT_PUBLIC_RELIABILITY_API_URL`: the
+3. Optional environment variable `NEXT_PUBLIC_KLAW_API_URL`: the
    default supervisor address. You can change it any time on the sign-in page
    (**Supervisor: … change**), so a new tunnel address never needs a rebuild.
-   Never set `NEXT_PUBLIC_RELIABILITY_TOKEN` on a deployment.
+   Never set `NEXT_PUBLIC_KLAW_TOKEN` on a deployment.
 
 ## 4. Sign in and connect agents
 
@@ -50,7 +50,7 @@ command it shows on each machine whose agents you want supervised.
 * Supervision is up while your machine and the supervisor are running. When
   it is off, agents keep working unsupervised: Claude Code hooks queue events
   on their own machine and deliver them later; SDK apps queue in memory.
-* The data is one file. Back it up by copying `data/reliability.db`.
+* The data is one file. Back it up by copying `data/klaw.db`.
 * SQLite handles a handful of concurrent agents comfortably (tested with five
   at once); for many busy agents, point `DATABASE_URL` at Postgres.
 

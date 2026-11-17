@@ -1,0 +1,24 @@
+name: Bug report
+description: Something in Klaw doesn't work as documented
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what happened instead.
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Where
+      options: [Supervisor, Claude Code adapter, OpenAI Agents SDK adapter, Python SDK, Dashboard / website, Docs]
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: How to reproduce
+      description: Commands, config (redact keys), and the agent platform version.
+  - type: textarea
+    attributes:
+      label: Environment
+      description: OS, Python version, `klaw-supervisor info`, browser if relevant.

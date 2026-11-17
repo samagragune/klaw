@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from reliability_companion import hook  # noqa: E402
+from klaw_companion import hook  # noqa: E402
 
 CAPTURE = {"tool_input": True, "prompts": True, "assistant_messages": True}
 
@@ -106,7 +106,7 @@ def test_stop_decision_ends_the_turn():
 
 def test_redirect_at_completion_blocks_stopping_with_feedback():
     out = hook.stop_output({"action": "REDIRECT", "feedback": "run the tests", "rule": "review"})
-    assert out == {"decision": "block", "reason": "[Reliability supervisor · review] run the tests"}
+    assert out == {"decision": "block", "reason": "[Klaw supervisor · review] run the tests"}
     assert hook.stop_output({"action": "ALLOW"}) is None
 
 
@@ -138,9 +138,9 @@ def test_unreadable_transcript_yields_nothing(tmp_path, monkeypatch):
 
 
 def test_unconfigured_hook_fails_open(monkeypatch, tmp_path, capsys):
-    monkeypatch.setenv("RELIABILITY_CONFIG", str(tmp_path / "none.json"))
-    monkeypatch.delenv("RELIABILITY_API_URL", raising=False)
-    monkeypatch.delenv("RELIABILITY_INTEGRATION_KEY", raising=False)
+    monkeypatch.setenv("KLAW_CONFIG", str(tmp_path / "none.json"))
+    monkeypatch.delenv("KLAW_API_URL", raising=False)
+    monkeypatch.delenv("KLAW_INTEGRATION_KEY", raising=False)
     monkeypatch.setattr(hook, "HOME", str(tmp_path))
     monkeypatch.setattr(hook, "LOG", str(tmp_path / "hook.log"))
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(data("PreToolUse", tool_name="Bash"))))
@@ -151,7 +151,7 @@ def test_unconfigured_hook_fails_open(monkeypatch, tmp_path, capsys):
 def test_unreachable_supervisor_fails_open_and_spools(monkeypatch, tmp_path, capsys):
     config = tmp_path / "config.json"
     config.write_text(json.dumps({"api_url": "http://127.0.0.1:9", "integration_key": "rl_int_x"}))
-    monkeypatch.setenv("RELIABILITY_CONFIG", str(config))
+    monkeypatch.setenv("KLAW_CONFIG", str(config))
     monkeypatch.setattr(hook, "HOME", str(tmp_path))
     monkeypatch.setattr(hook, "LOG", str(tmp_path / "hook.log"))
     monkeypatch.setattr(hook, "SPOOL", str(tmp_path / "spool.jsonl"))
@@ -170,7 +170,7 @@ def test_garbage_input_fails_open(monkeypatch, capsys):
 
 
 def test_installer_only_touches_its_own_hooks():
-    from reliability_companion import cli
+    from klaw_companion import cli
 
     mine = {"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "my-guard.sh"}]}]}}
     installed = cli.with_hooks(mine)

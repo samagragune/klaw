@@ -11,7 +11,7 @@ it against the scenario's expectation. Because the model really decides what
 to do, a run can legitimately differ from the expectation; that is reported
 as a FAIL with what actually happened, never papered over.
 
-Needs: the backend running, RELIABILITY_API_KEY and GEMINI_API_KEY in .env.
+Needs: the backend running, KLAW_API_KEY and GEMINI_API_KEY in .env.
 """
 from __future__ import annotations
 
@@ -33,10 +33,10 @@ load_env()
 import httpx  # noqa: E402
 
 from real_agents import SCENARIOS, Scenario, build  # noqa: E402
-from reliability import ExecutionCancelled  # noqa: E402
+from klaw import ExecutionCancelled  # noqa: E402
 
-API_URL = os.environ.get("RELIABILITY_API_URL", "http://127.0.0.1:8000")
-API_KEY = os.environ.get("RELIABILITY_API_KEY", "")
+API_URL = os.environ.get("KLAW_API_URL", "http://127.0.0.1:8000")
+API_KEY = os.environ.get("KLAW_API_KEY", "")
 MODEL = os.environ.get("DEMO_AGENT_MODEL", "gemini-3.5-flash-lite")
 
 REVIEW_WAIT_SECONDS = 120
@@ -210,7 +210,7 @@ async def run_one(key: str, scenario: Scenario, autopilot: bool) -> bool:
 
 
 async def main() -> int:
-    parser = argparse.ArgumentParser(description="Run real Gemini agents under Reliability.")
+    parser = argparse.ArgumentParser(description="Run real Gemini agents under Klaw.")
     parser.add_argument("scenario", nargs="?", help="scenario name, or 'all'")
     parser.add_argument("--list", action="store_true")
     parser.add_argument(
@@ -225,7 +225,7 @@ async def main() -> int:
         print()
         return 0
     if not API_KEY:
-        print("RELIABILITY_API_KEY is not set. Run: python -m reliability_supervisor.seed (in backend/)")
+        print("KLAW_API_KEY is not set. Run: python -m klaw_supervisor.seed (in backend/)")
         return 1
     if not os.environ.get("GEMINI_API_KEY"):
         print("GEMINI_API_KEY is not set in .env")

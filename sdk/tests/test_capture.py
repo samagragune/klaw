@@ -1,7 +1,7 @@
 """Capture and redaction: what leaves the process, and what must not."""
 from __future__ import annotations
 
-from reliability.capture import (
+from klaw.capture import (
     REDACTED,
     CaptureConfig,
     arg_shape,

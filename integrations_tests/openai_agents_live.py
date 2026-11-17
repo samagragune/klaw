@@ -38,7 +38,7 @@ ENV = dict(
     if "=" in line and not line.startswith("#")
 )
 API = "http://127.0.0.1:8000"
-USER_KEY = ENV["RELIABILITY_API_KEY"].strip()
+USER_KEY = ENV["KLAW_API_KEY"].strip()
 MODEL = ENV.get("DEMO_AGENT_MODEL", "gemini-3.5-flash-lite").strip()
 
 
@@ -69,7 +69,7 @@ def configure_provider() -> None:
     )
     set_default_openai_api("chat_completions")
     # No OpenAI key: drop the default exporter (it would upload traces to
-    # OpenAI). The Reliability processor is added by the supervisor.
+    # OpenAI). The Klaw processor is added by the supervisor.
     set_trace_processors([])
 
 
@@ -299,7 +299,7 @@ async def scenario_pause(sup, app, **_) -> tuple[bool, list[str]]:
 
 
 async def scenario_stop(sup, app, **_) -> tuple[bool, list[str]]:
-    from reliability.integrations.openai_agents import RunStopped
+    from klaw.integrations.openai_agents import RunStopped
 
     set_policy()
     session = f"cs-stop-{int(time.time())}"
@@ -388,7 +388,7 @@ async def main_async(app_name: str, examples: Path | None, names: list[str]) -> 
     app = helpdesk_profile() if app_name == "helpdesk" else examples_profile(examples)
 
     key = api("POST", "/v1/integrations", {"platform": "openai_agents", "name": f"{app.name}-app"})["key"]
-    from reliability.integrations.openai_agents import AgentsSupervisor
+    from klaw.integrations.openai_agents import AgentsSupervisor
 
     sup = AgentsSupervisor(app_name=app.name, api_url=API, integration_key=key)
     results = {}

@@ -12,7 +12,7 @@ const barlow = Barlow_Condensed({
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Reliability — the supervisor for AI agents",
+  title: "Klaw — the supervisor for AI agents",
   description:
     "Run a supervisor on your own machine, connect Claude Code and OpenAI Agents SDK agents, and watch, approve and stop their work from one dashboard.",
 };

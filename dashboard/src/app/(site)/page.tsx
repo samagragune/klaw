@@ -10,6 +10,7 @@ import {
   TimerOff,
 } from "lucide-react";
 import { CopyCode, Section, SupervisorTerminal } from "@/components/site";
+import { ClawMachine } from "@/components/claw";
 import { INSTALL_COMPANION, INSTALL_SUPERVISOR, START_SUPERVISOR } from "@/lib/site-constants";
 
 const CAPABILITIES = [
@@ -99,8 +100,10 @@ export default function LandingPage() {
   return (
     <>
       {/* HERO */}
-      <section className="grid-bg border-b border-line">
-        <div className="mx-auto grid max-w-[1280px] items-center gap-14 px-5 py-20 md:px-8 lg:grid-cols-[1.05fr_1fr] lg:py-28">
+      <section className="grid-bg relative overflow-hidden border-b border-line">
+        <div className="glow glow-accent glow-drift right-[8%] top-[18%] size-[560px]" />
+        <div className="glow glow-white -left-32 top-1/3 size-[460px]" />
+        <div className="relative mx-auto grid max-w-[1280px] items-center gap-14 px-5 py-20 md:px-8 lg:grid-cols-[1.05fr_1fr] lg:py-28">
           <div>
             <div className="bracket mb-7">The supervisor for AI agents</div>
             <h1 className="display text-[56px] sm:text-[76px] lg:text-[88px]">
@@ -125,7 +128,12 @@ export default function LandingPage() {
               <span>no model key required</span>
             </div>
           </div>
-          <SupervisorTerminal />
+          <div className="relative">
+            <div className="absolute -top-[150px] right-6 hidden lg:block">
+              <ClawMachine width={64} />
+            </div>
+            <SupervisorTerminal />
+          </div>
         </div>
       </section>
 
@@ -138,7 +146,7 @@ export default function LandingPage() {
             ["Python agents", "SDK checkpoints"],
             ["Your platform", "open event protocol"],
           ].map(([name, how]) => (
-            <div key={name} className="border-r border-line px-5 py-7 last:border-r-0 md:px-8">
+            <div key={name} className="border-r border-line px-5 py-7 transition-colors last:border-r-0 hover:bg-white/[0.03] md:px-8">
               <div className="display display-bold text-[22px]">{name}</div>
               <div className="label-mono mt-1 text-faint">{how}</div>
             </div>
@@ -154,7 +162,7 @@ export default function LandingPage() {
         bold="Nothing to host."
         intro="The supervisor is a small program you run yourself. Agents report to it; this website is the window onto it. Your data never passes through anyone else."
       >
-        <div className="grid gap-px border border-line bg-[var(--border)] lg:grid-cols-3">
+        <div className="grid gap-3 lg:grid-cols-3">
           {[
             {
               n: "01",
@@ -166,7 +174,7 @@ export default function LandingPage() {
               n: "02",
               title: "Connect your agents",
               body: "Create a key under Integrations; the dashboard shows the one command to run in your project.",
-              code: `${INSTALL_COMPANION}\nreliability-companion setup --api-url http://127.0.0.1:8000 --key rl_int_…`,
+              code: `${INSTALL_COMPANION}\nklaw-companion setup --api-url http://127.0.0.1:8000 --key rl_int_…`,
             },
             {
               n: "03",
@@ -175,7 +183,7 @@ export default function LandingPage() {
               code: "# open the dashboard\n# Policies → control mode\n# Approvals → approve / deny",
             },
           ].map((step) => (
-            <div key={step.n} className="flex flex-col gap-5 bg-bg p-7">
+            <div key={step.n} className="glass glass-hover flex flex-col gap-5 p-7">
               <div className="flex items-baseline gap-3">
                 <span className="label-mono text-[var(--accent)]">{step.n}</span>
                 <h3 className="display display-bold text-[28px]">{step.title}</h3>
@@ -197,9 +205,9 @@ export default function LandingPage() {
         bold="What it does about it."
         intro="Deterministic rules decide; a model only advises, and only if you turn it on. Every decision is recorded with the rule, the reason and what the platform could actually carry out."
       >
-        <div className="grid gap-px border border-line bg-[var(--border)] sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {CAPABILITIES.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="bg-bg p-7">
+            <div key={title} className="glass glass-hover p-7">
               <Icon className="size-5 text-[var(--accent)]" strokeWidth={1.5} />
               <h3 className="display display-bold mt-5 text-[24px]">{title}</h3>
               <p className="mt-3 text-sm leading-relaxed text-muted">{body}</p>
@@ -214,12 +222,12 @@ export default function LandingPage() {
         label="Control, not just traces"
         light="Watching an agent"
         bold="is not stopping it."
-        intro="Reliability plugs into each platform's own extension points, so it can act before a tool runs — and it tells you plainly what each platform cannot do."
+        intro="Klaw plugs into each platform's own extension points, so it can act before a tool runs — and it tells you plainly what each platform cannot do."
       >
-        <div className="overflow-x-auto border border-line">
+        <div className="glass overflow-x-auto">
           <table className="w-full min-w-[620px] text-sm">
             <thead>
-              <tr className="border-b border-line bg-panel">
+              <tr className="border-b border-line">
                 <th className="label-mono px-5 py-4 text-left text-faint">Capability</th>
                 <th className="label-mono px-5 py-4 text-left text-faint">Claude Code</th>
                 <th className="label-mono px-5 py-4 text-left text-faint">OpenAI Agents SDK</th>
@@ -249,7 +257,7 @@ export default function LandingPage() {
             ["Recommend", "The agent is told what's wrong. Nothing is refused."],
             ["Control", "Block, hold for approval, stop, pause — within your policy."],
           ].map(([mode, body]) => (
-            <div key={mode} className="border border-line p-5">
+            <div key={mode} className="glass p-5">
               <div className="label-mono text-[var(--accent)]">{mode} mode</div>
               <p className="mt-2 text-sm text-muted">{body}</p>
             </div>
@@ -264,9 +272,9 @@ export default function LandingPage() {
         light="Built for agents that"
         bold="touch real things."
       >
-        <div className="grid gap-px border border-line bg-[var(--border)] md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {USE_CASES.map((u) => (
-            <div key={u.title} className="bg-bg p-8">
+            <div key={u.title} className="glass glass-hover p-8">
               <div className="label-mono text-faint">{u.tag}</div>
               <h3 className="display display-bold mt-4 text-[30px]">{u.title}</h3>
               <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted">{u.body}</p>
@@ -295,7 +303,7 @@ export default function LandingPage() {
         bold="Your record."
         className="dots-bg"
       >
-        <div className="grid gap-px border border-line bg-[var(--border)] md:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-4">
           {[
             [Activity, "Runs where you run it", "One process and one SQLite file. Back it up by copying it."],
             [ShieldAlert, "Sends what's needed", "Secret-looking keys are redacted at the source; tool outputs are fingerprinted, not sent."],
@@ -304,7 +312,7 @@ export default function LandingPage() {
           ].map(([Icon, title, body]) => {
             const I = Icon as typeof Activity;
             return (
-              <div key={title as string} className="bg-bg p-7">
+              <div key={title as string} className="glass glass-hover p-7">
                 <I className="size-5 text-[var(--accent)]" strokeWidth={1.5} />
                 <h3 className="display display-bold mt-5 text-[22px]">{title as string}</h3>
                 <p className="mt-2 text-sm text-muted">{body as string}</p>
@@ -316,9 +324,9 @@ export default function LandingPage() {
 
       {/* FAQ */}
       <Section id="faq" label="FAQ" light="Questions," bold="answered plainly.">
-        <div className="grid gap-px border border-line bg-[var(--border)] md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {FAQ.map(([q, a]) => (
-            <div key={q} className="bg-bg p-7">
+            <div key={q} className="glass glass-hover p-7">
               <h3 className="text-[16px] font-semibold text-ink">{q}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted">{a}</p>
             </div>
@@ -327,8 +335,12 @@ export default function LandingPage() {
       </Section>
 
       {/* CTA */}
-      <section className="grid-bg border-b border-line">
-        <div className="mx-auto flex max-w-[1280px] flex-col items-start gap-8 px-5 py-24 md:px-8 lg:flex-row lg:items-end lg:justify-between">
+      <section className="grid-bg relative overflow-hidden border-b border-line">
+        <div className="glow glow-accent left-1/3 top-0 size-[600px]" />
+        <div className="relative mx-auto flex max-w-[1280px] flex-col items-start gap-8 px-5 py-24 md:px-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="hidden md:block">
+            <ClawMachine width={84} label="grab your agents" />
+          </div>
           <h2 className="display text-[52px] md:text-[80px]">
             <span className="display-light block">Start supervising</span>
             <span className="display-bold block">in five minutes.</span>

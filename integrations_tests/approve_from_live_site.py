@@ -55,7 +55,7 @@ async def main_async(args) -> int:
     configure_provider()
     app = helpdesk_profile()
     key = api("POST", "/v1/integrations", {"platform": "openai_agents", "name": "live-site-approval"})["key"]
-    from reliability.integrations.openai_agents import AgentsSupervisor
+    from klaw.integrations.openai_agents import AgentsSupervisor
 
     sup = AgentsSupervisor(app_name="helpdesk", api_url=API, integration_key=key)
     api("PUT", "/v1/policies", {"supervision_mode": "control", "name": "live-site",
