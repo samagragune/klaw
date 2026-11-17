@@ -20,4 +20,4 @@ EXPOSE 8000
 # One worker: the in-process event bus only fans out within a single process.
 # Scale past one worker only with EVENT_BUS=redis. Hosts that assign a port
 # (Railway, Fly, Render) pass it as $PORT.
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
+CMD ["sh", "-c", "uvicorn reliability_supervisor.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]

@@ -225,7 +225,7 @@ async def main() -> int:
         print()
         return 0
     if not API_KEY:
-        print("RELIABILITY_API_KEY is not set. Run: python -m app.seed (in backend/)")
+        print("RELIABILITY_API_KEY is not set. Run: python -m reliability_supervisor.seed (in backend/)")
         return 1
     if not os.environ.get("GEMINI_API_KEY"):
         print("GEMINI_API_KEY is not set in .env")

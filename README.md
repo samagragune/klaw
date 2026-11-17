@@ -72,7 +72,7 @@ python -m venv .venv
 #   SECRET_KEY=<random>   DEV_SESSION_TOKEN=<random>
 #   SUPERVISOR_LLM_PROVIDER=gemini   GEMINI_API_KEY=<key>   (optional: output review)
 
-cd backend && python -m app.seed && python -m uvicorn app.main:app --port 8000
+cd backend && python -m reliability_supervisor.seed && python -m uvicorn reliability_supervisor.main:app --port 8000
 ```
 
 ```bash

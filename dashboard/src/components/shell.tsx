@@ -24,6 +24,7 @@ import { useAsync } from "@/lib/hooks";
 import { api, clearToken } from "@/lib/api";
 import { cn } from "./ui";
 import { BackendStatus } from "./backend-status";
+import { LogoMark } from "./site";
 
 const NAV_GROUPS = [
   {
@@ -95,22 +96,18 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-line bg-panel md:flex">
-        <div className="flex items-center gap-2 border-b border-line px-4 py-4">
-          <div className="grid size-6 place-items-center rounded bg-[var(--accent)] text-[11px] font-bold text-white">
-            R
-          </div>
+        <Link href="/" className="flex items-center gap-2.5 border-b border-line px-4 py-4 text-ink">
+          <LogoMark size={20} />
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-ink">Reliability</div>
-            <div className="truncate text-[10px] text-faint">agent control plane</div>
+            <div className="display display-bold truncate text-[19px] leading-none">Reliability</div>
+            <div className="label-mono mt-1 truncate text-[9.5px] text-faint">supervisor console</div>
           </div>
-        </div>
+        </Link>
 
         <nav className="flex-1 space-y-4 overflow-y-auto p-2">
           {NAV_GROUPS.map((group) => (
             <div key={group.label}>
-              <div className="px-2.5 pb-1 text-[10px] font-medium uppercase tracking-wider text-faint">
-                {group.label}
-              </div>
+              <div className="bracket px-2.5 pb-1.5 text-[10px] text-faint">{group.label}</div>
               <div className="space-y-0.5">
                 {group.items.map(({ href, label, icon: Icon }) => {
                   const active = pathname === href || pathname.startsWith(`${href}/`);
@@ -187,7 +184,7 @@ export function PageHeader({
       {breadcrumb ? <div className="mb-1.5 text-xs text-faint">{breadcrumb}</div> : null}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold text-ink">{title}</h1>
+          <h1 className="display display-bold text-[34px] text-ink">{title}</h1>
           {description ? (
             <p className="mt-1 max-w-2xl text-sm text-muted">{description}</p>
           ) : null}

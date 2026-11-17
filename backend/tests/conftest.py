@@ -22,10 +22,10 @@ import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 
-from app.db import Base, SessionLocal, engine  # noqa: E402
-from app.main import app  # noqa: E402
-from app.models import ApiKey, User  # noqa: E402
-from app.security import generate_api_key  # noqa: E402
+from reliability_supervisor.db import Base, SessionLocal, engine  # noqa: E402
+from reliability_supervisor.main import app  # noqa: E402
+from reliability_supervisor.models import ApiKey, User  # noqa: E402
+from reliability_supervisor.security import generate_api_key  # noqa: E402
 
 
 @pytest_asyncio.fixture(autouse=True)

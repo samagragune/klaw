@@ -11,9 +11,9 @@ import json
 import httpx
 import pytest
 
-from app.config import Settings
-from app.supervision import output_review, providers
-from app.supervision.providers import LLMProvider
+from reliability_supervisor.config import Settings
+from reliability_supervisor.supervision import output_review, providers
+from reliability_supervisor.supervision.providers import LLMProvider
 
 from tests.test_api import event, register, start
 
@@ -49,8 +49,8 @@ def evaluator(monkeypatch):
     def install(verdict: dict) -> StubProvider:
         stub = StubProvider(verdict)
         monkeypatch.setattr(output_review, "get_provider", lambda tier="deep": stub)
-        monkeypatch.setattr("app.routers.executions.provider_configured", lambda: True)
-        monkeypatch.setattr("app.routers.control.provider_configured", lambda: True)
+        monkeypatch.setattr("reliability_supervisor.routers.executions.provider_configured", lambda: True)
+        monkeypatch.setattr("reliability_supervisor.routers.control.provider_configured", lambda: True)
         return stub
 
     return install

@@ -64,7 +64,7 @@ async def wait_for(predicate, timeout: float = TIMEOUT, interval: float = 0.4):
 
 async def main() -> int:
     if not API_KEY:
-        print("RELIABILITY_API_KEY is not set. Run `python -m app.seed` in backend/.")
+        print("RELIABILITY_API_KEY is not set. Run `python -m reliability_supervisor.seed` in backend/.")
         return 1
 
     checks = Checks()

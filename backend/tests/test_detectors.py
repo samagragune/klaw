@@ -4,9 +4,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from app.pricing import estimate_cost
-from app.schemas import PolicyConfiguration
-from app.supervision.detectors import (
+from reliability_supervisor.pricing import estimate_cost
+from reliability_supervisor.schemas import PolicyConfiguration
+from reliability_supervisor.supervision.detectors import (
     detect_cost_budget,
     detect_execution_timeout,
     detect_repeated_errors,

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reliability-supervisor"
+version = "0.3.0"
+description = "Supervise Claude Code and OpenAI Agents SDK agents from one dashboard. Runs on your machine."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "aiosqlite>=0.20",
+    "asyncpg>=0.29",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "httpx>=0.27",
+    "redis>=5.0",
+    "pyjwt[crypto]>=2.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=1.0"]
+
+[project.scripts]
+reliability-supervisor = "reliability_supervisor.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["reliability_supervisor*"]

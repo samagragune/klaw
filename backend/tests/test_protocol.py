@@ -14,9 +14,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.main import app
-from app.supervision import output_review
-from app.supervision.providers import LLMProvider
+from reliability_supervisor.main import app
+from reliability_supervisor.supervision import output_review
+from reliability_supervisor.supervision.providers import LLMProvider
 
 pytestmark = pytest.mark.asyncio
 
@@ -393,8 +393,8 @@ async def test_unanswered_approval_expires(client):
     async with scoped as scoped_client:
         decision = await tool_decision(scoped_client, "make deploy")
         approval_id = decision["approval"]["id"]
-    from app.db import SessionLocal
-    from app.models import ApprovalRequest
+    from reliability_supervisor.db import SessionLocal
+    from reliability_supervisor.models import ApprovalRequest
 
     async with SessionLocal() as session:
         row = await session.get(ApprovalRequest, approval_id)
@@ -449,7 +449,7 @@ async def test_incomplete_output_is_sent_back_once_with_the_gaps(client, monkeyp
 async def test_evaluator_answers_identical_questions_from_cache(client, monkeypatch):
     stub = Stub({"satisfies_objective": True, "gaps": [], "reasoning": "fine", "confidence": "high"})
     monkeypatch.setattr(output_review, "get_provider", lambda tier="deep": stub)
-    monkeypatch.setattr("app.routers.executions.provider_configured", lambda: True)
+    monkeypatch.setattr("reliability_supervisor.routers.executions.provider_configured", lambda: True)
     _, scoped = await make_integration(client)
     async with scoped as scoped_client:
         await scoped_client.post("/v1/events", json={"events": [
@@ -491,7 +491,7 @@ async def test_signup_login_and_session_token(accounts):
 
 
 async def test_tampered_session_token_is_rejected(accounts):
-    from app.security import issue_session_token
+    from reliability_supervisor.security import issue_session_token
 
     token, _ = issue_session_token(accounts["primary"]["user_id"])
     tampered = token[:-2] + ("AA" if not token.endswith("AA") else "BB")
@@ -501,7 +501,7 @@ async def test_tampered_session_token_is_rejected(accounts):
 
 
 async def test_dev_token_is_refused_outside_development(client, monkeypatch):
-    from app.config import get_settings
+    from reliability_supervisor.config import get_settings
 
     monkeypatch.setattr(get_settings(), "reliability_env", "production")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as anon:
@@ -516,7 +516,7 @@ async def test_dev_token_is_refused_outside_development(client, monkeypatch):
 # ---------------------------------------------------------------------------
 
 async def test_unbounded_shell_loop_is_flagged_and_bounded_ones_are_not():
-    from app.supervision import risk
+    from reliability_supervisor.supervision import risk
 
     def rules(command):
         return [f.rule for f in risk.assess("Bash", {"command": command})]
@@ -575,7 +575,7 @@ async def test_redirect_reopens_the_task(client, monkeypatch):
 # ---------------------------------------------------------------------------
 
 async def test_neon_style_url_is_made_asyncpg_compatible():
-    from app.db import resolve_database
+    from reliability_supervisor.db import resolve_database
 
     url, args = resolve_database(
         "postgresql+asyncpg://u:p@ep-x.neon.tech/neondb?sslmode=require&channel_binding=require",
@@ -590,7 +590,7 @@ async def test_neon_style_url_is_made_asyncpg_compatible():
 async def test_keepalive_pings_the_public_url_and_reports_on_health(client, monkeypatch):
     import httpx
 
-    from app import keepalive
+    from reliability_supervisor import keepalive
 
     seen: list[str] = []
 
@@ -608,10 +608,84 @@ async def test_keepalive_pings_the_public_url_and_reports_on_health(client, monk
 
 
 async def test_keepalive_is_off_without_a_public_url(monkeypatch):
-    from app import keepalive
+    from reliability_supervisor import keepalive
 
     monkeypatch.delenv("RENDER_EXTERNAL_URL", raising=False)
     monkeypatch.setattr(keepalive.get_settings(), "keepalive_url", "")
     assert keepalive.keepalive_url() is None
     monkeypatch.setenv("RENDER_EXTERNAL_URL", "https://svc.onrender.com/")
     assert keepalive.keepalive_url() == "https://svc.onrender.com"
+
+
+# ---------------------------------------------------------------------------
+# Google sign-in (token verification against a locally generated key)
+# ---------------------------------------------------------------------------
+
+def _google_token(private_key, **claims):
+    import time as _t
+
+    import jwt
+
+    base = {"iss": "https://accounts.google.com", "aud": "client-123.apps.googleusercontent.com",
+            "sub": "1001", "email": "ops@example.com", "email_verified": True,
+            "iat": int(_t.time()), "exp": int(_t.time()) + 600, "name": "Ops"}
+    base.update(claims)
+    return jwt.encode(base, private_key, algorithm="RS256", headers={"kid": "k1"})
+
+
+@pytest.fixture
+def google_keys(monkeypatch):
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    from reliability_supervisor.config import get_settings
+    from reliability_supervisor.routers import auth as auth_router
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+    class FakeJWKS:
+        def get_signing_key_from_jwt(self, token):
+            return type("K", (), {"key": key.public_key()})()
+
+    monkeypatch.setattr(auth_router, "_jwks_client", FakeJWKS())
+    monkeypatch.setattr(get_settings(), "google_client_ids", "client-123.apps.googleusercontent.com")
+    return key
+
+
+async def test_google_sign_in_creates_and_reuses_the_account(google_keys, accounts):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as anon:
+        providers = (await anon.get("/v1/auth/providers")).json()
+        assert providers["google_client_ids"] == ["client-123.apps.googleusercontent.com"]
+        first = await anon.post("/v1/auth/google", json={"credential": _google_token(google_keys)})
+        assert first.status_code == 200, first.text
+        again = await anon.post("/v1/auth/google", json={"credential": _google_token(google_keys)})
+        assert first.json()["user"]["id"] == again.json()["user"]["id"]
+        me = await anon.get("/v1/auth/me", headers={"Authorization": f"Bearer {again.json()['token']}"})
+        assert me.json()["email"] == "ops@example.com"
+
+
+async def test_google_token_for_another_client_is_rejected(google_keys, accounts):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as anon:
+        bad_aud = await anon.post("/v1/auth/google", json={"credential": _google_token(google_keys, aud="someone-else")})
+        unverified = await anon.post("/v1/auth/google", json={"credential": _google_token(google_keys, email_verified=False)})
+    assert bad_aud.status_code == 401
+    assert unverified.status_code == 401
+
+
+async def test_google_sign_in_is_off_without_a_client_id(accounts):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as anon:
+        response = await anon.post("/v1/auth/google", json={"credential": "x" * 40})
+    assert response.status_code == 404
+
+
+async def test_cli_prepares_a_working_local_setup(tmp_path, monkeypatch):
+    from reliability_supervisor import cli
+
+    for var in ("DATABASE_URL", "SECRET_KEY", "CORS_ORIGINS", "RELIABILITY_ENV", "GEMINI_API_KEY", "SUPERVISOR_LLM_PROVIDER"):
+        monkeypatch.delenv(var, raising=False)
+    env = cli.prepare(tmp_path / "sup", ["https://mine.example"])
+    assert (tmp_path / "sup" / "secret_key").exists() and len(env["SECRET_KEY"]) >= 32
+    assert env["DATABASE_URL"].endswith("sup/reliability.db")
+    assert cli.HOSTED_DASHBOARD in env["CORS_ORIGINS"] and "https://mine.example" in env["CORS_ORIGINS"]
+    assert env["RELIABILITY_ENV"] == "production"
+    # Same secret on the next start: existing sessions stay valid.
+    assert cli.prepare(tmp_path / "sup", [])["SECRET_KEY"] == env["SECRET_KEY"]

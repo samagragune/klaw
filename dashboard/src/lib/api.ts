@@ -519,6 +519,13 @@ export const auth = {
     publicRequest<{ token: string; user: SessionUser }>("/v1/auth/login", { email, password }),
   signup: (email: string, password: string, name?: string) =>
     publicRequest<{ token: string; user: SessionUser }>("/v1/auth/signup", { email, password, name }),
+  google: (credential: string) =>
+    publicRequest<{ token: string; user: SessionUser }>("/v1/auth/google", { credential }),
+  providers: async (): Promise<{ email: boolean; signup: boolean; google_client_ids: string[] }> => {
+    const response = await fetch(`${getApiUrl()}/v1/auth/providers`, { cache: "no-store" });
+    if (!response.ok) throw new ApiError("Supervisor did not answer", response.status);
+    return response.json();
+  },
 };
 
 export const api = {

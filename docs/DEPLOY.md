@@ -8,8 +8,8 @@ static site that can live on Vercel's free tier and talk to it.
 
 ```bash
 cd backend
-python -m app.seed                                  # first time: creates the database file
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+python -m reliability_supervisor.seed                                  # first time: creates the database file
+python -m uvicorn reliability_supervisor.main:app --host 127.0.0.1 --port 8000
 ```
 
 `.env` at the repo root needs `SECRET_KEY` (and `GEMINI_API_KEY` +
