@@ -871,7 +871,7 @@ async def _investigate_session(session, execution, task, prompt, mode, config, c
         ctx, purpose="agent.monitor", system=AGENT_SYSTEM, goal=goal,
         tools=INVESTIGATE + ACT, finish=ASSESS_SCHEMA,
         max_steps=int(config.get("agent_monitor_max_steps", 5)),
-        seconds=float(config.get("agent_monitor_seconds", 40)),
+        seconds=float(config.get("agent_monitor_seconds", 60)),
     )
     _record_run(execution, "monitor", run, run.result)
     _note_run_failure("fast", run)
@@ -929,7 +929,7 @@ async def plan_task(session, execution, task, mode, config) -> dict[str, Any] | 
         ctx, purpose="agent.plan", system=AGENT_SYSTEM, goal=goal,
         tools=[LIST_DIR, READ_FILE, SEARCH, GIT, PROJECT_HISTORY, REMEMBER], finish=PLAN_SCHEMA,
         max_steps=int(config.get("agent_plan_max_steps", 4)),
-        seconds=float(config.get("agent_plan_seconds", 30)),
+        seconds=float(config.get("agent_plan_seconds", 60)),
     )
     _record_run(execution, "plan", run, run.result)
     _note_run_failure("fast", run)
