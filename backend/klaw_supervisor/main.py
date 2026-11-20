@@ -15,6 +15,7 @@ from klaw_supervisor.bus import close_bus, get_bus
 from klaw_supervisor.config import get_settings
 from klaw_supervisor.db import init_models
 from klaw_supervisor.routers import (
+    agent as klaw_agent_router,
     agents,
     analytics,
     approvals,
@@ -113,6 +114,7 @@ app.include_router(integrations.router)
 app.include_router(protocol.router)
 app.include_router(approvals.router)
 app.include_router(analytics.router)
+app.include_router(klaw_agent_router.router)
 
 
 _STARTED = time.time()

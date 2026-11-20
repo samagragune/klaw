@@ -2,6 +2,7 @@
 
     klaw-supervisor start            # http://127.0.0.1:8000, data in ~/.klaw/supervisor
     klaw-supervisor start --port 9000 --allow-origin https://my-dashboard.example
+    klaw-supervisor set-key          # the Gemini key the Klaw agent reasons with
     klaw-supervisor info
 
 Zero configuration: the first start creates a data directory holding the
@@ -83,14 +84,20 @@ def cmd_start(args: argparse.Namespace) -> int:
     data_dir = Path(args.data_dir).expanduser() if args.data_dir else default_data_dir()
     env = prepare(data_dir, args.allow_origin or [])
     url = f"http://{args.host}:{args.port}"
-    evaluator = env.get("SUPERVISOR_LLM_PROVIDER") or os.environ.get("SUPERVISOR_LLM_PROVIDER", "none")
+    provider = env.get("SUPERVISOR_LLM_PROVIDER") or os.environ.get("SUPERVISOR_LLM_PROVIDER", "none")
+    if provider == "none":
+        agent_line = "rules only - run `klaw-supervisor set-key` to give the agent a model"
+    else:
+        model = os.environ.get("SUPERVISOR_MODEL", "gemini-3.5-flash")
+        fast = os.environ.get("SUPERVISOR_FAST_MODEL") or model
+        agent_line = f"thinking with {provider} ({fast} per action, {model} per task)"
     print(
         f"""
   Klaw supervisor
   ----------------------------------------------------------------
   listening   {url}
   data        {data_dir}
-  evaluator   {evaluator}  (set GEMINI_API_KEY in {data_dir / 'config.env'} to enable)
+  agent       {agent_line}
 
   Next: open {HOSTED_DASHBOARD}, keep the supervisor address
   {url}, create your account, then connect an agent under
@@ -101,6 +108,31 @@ def cmd_start(args: argparse.Namespace) -> int:
     import uvicorn
 
     uvicorn.run("klaw_supervisor.main:app", host=args.host, port=args.port, log_level="info")
+    return 0
+
+
+def cmd_set_key(args: argparse.Namespace) -> int:
+    """Store the model key the Klaw agent reasons with, without echoing it."""
+    import getpass
+
+    data_dir = Path(args.data_dir).expanduser() if args.data_dir else default_data_dir()
+    prepare(data_dir, [])
+    key = (args.key or getpass.getpass("Gemini API key (input hidden): ")).strip()
+    if not key:
+        print("No key given; nothing changed.")
+        return 1
+    config = data_dir / "config.env"
+    lines = [
+        line for line in config.read_text(encoding="utf-8").splitlines()
+        if not line.strip().startswith(("GEMINI_API_KEY=", "# GEMINI_API_KEY="))
+    ]
+    lines.append(f"GEMINI_API_KEY={key}")
+    config.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    try:
+        os.chmod(config, 0o600)
+    except OSError:
+        pass
+    print(f"Saved to {config}. Restart `klaw-supervisor start` and the agent will use it.")
     return 0
 
 
@@ -125,6 +157,10 @@ def main(argv: list[str] | None = None) -> int:
     start.add_argument("--data-dir", help="where the database and secret live (default ~/.klaw/supervisor)")
     start.add_argument("--allow-origin", action="append", help="another dashboard origin allowed to connect")
     start.set_defaults(fn=cmd_start)
+    set_key = sub.add_parser("set-key", help="give the Klaw agent its Gemini API key")
+    set_key.add_argument("--key", help="the key (omit to type it hidden)")
+    set_key.add_argument("--data-dir")
+    set_key.set_defaults(fn=cmd_set_key)
     info = sub.add_parser("info", help="show where things are")
     info.add_argument("--data-dir")
     info.set_defaults(fn=cmd_info)

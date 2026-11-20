@@ -56,10 +56,19 @@ def test_identical_inputs_fingerprint_identically_regardless_of_key_order():
     assert a == b
 
 
-def test_post_tool_use_sends_a_result_fingerprint_not_the_output():
+def test_post_tool_use_sends_a_fingerprint_and_a_redacted_preview_for_the_agent():
     event = hook.translate(data("PostToolUse", tool_name="Read", tool_use_id="tu-1",
-                                tool_response={"content": "secret file body"}), CAPTURE)
+                                tool_response={"content": "file body", "api_key": "sk-123"}), CAPTURE)
     assert event["event_type"] == "TOOL_CALL_COMPLETED"
+    assert event["payload"]["result_fingerprint"]
+    assert "file body" in event["payload"]["result_preview"]
+    assert "sk-123" not in event["payload"]["result_preview"]
+
+
+def test_result_preview_can_be_turned_off():
+    event = hook.translate(data("PostToolUse", tool_name="Read", tool_use_id="tu-1",
+                                tool_response={"content": "secret file body"}),
+                           {**CAPTURE, "tool_output_preview": False})
     assert event["payload"]["result_fingerprint"]
     assert "result_preview" not in event["payload"]
 

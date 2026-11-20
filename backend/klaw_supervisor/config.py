@@ -89,6 +89,9 @@ class Settings(BaseSettings):
     def _fallback_provider_key(self) -> "Settings":
         if not self.supervisor_llm_api_key and self.supervisor_llm_provider == "gemini":
             self.supervisor_llm_api_key = self.gemini_api_key
+        if self.supervisor_llm_provider == "gemini" and not self.supervisor_fast_model:
+            # The Klaw agent reviews every tool call: that needs a fast model.
+            self.supervisor_fast_model = "gemini-3.5-flash-lite"
         return self
 
     @property

@@ -120,13 +120,13 @@ def cmd_connect(args) -> int:
     config.update({"api_url": args.api_url.rstrip("/"), "integration_key": args.key})
     config.setdefault("capture", {
         "tool_input": True,
-        "tool_output_preview": False,
+        "tool_output_preview": True,
         "prompts": True,
         "assistant_messages": True,
     })
     config.setdefault("timeouts", {
         "event_seconds": 4,
-        "decision_seconds": 8,
+        "decision_seconds": 12,
         "completion_review_seconds": 45,
         "approval_max_seconds": 540,
     })

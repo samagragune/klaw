@@ -217,7 +217,7 @@ def translate(data: dict, capture: dict) -> dict | None:
     tool = data.get("tool_name")
     tool_input = data.get("tool_input")
     send_input = capture.get("tool_input", True)
-    send_output = capture.get("tool_output_preview", False)
+    send_output = capture.get("tool_output_preview", True)
     send_prompt = capture.get("prompts", True)
     send_messages = capture.get("assistant_messages", True)
 
@@ -249,7 +249,8 @@ def translate(data: dict, capture: dict) -> dict | None:
             # Always sent: it is what tells a loop (same call, same answer)
             # from legitimate repetition, without sending the output itself.
             "result_fingerprint": fingerprint(response),
-            "result_preview": clip(response, 1500) if send_output else None,
+            # A redacted preview lets the Klaw agent see what a call returned.
+            "result_preview": clip(redact(response), 1500) if send_output else None,
         })
     if hook == "PostToolUseFailure":
         error = data.get("error")
@@ -554,7 +555,7 @@ def run() -> dict | None:
     try:
         if hook == "PreToolUse":
             decision = request(config, "POST", "/v1/decisions", {"event": event},
-                               timeout=float(timeouts.get("decision_seconds", 8)))
+                               timeout=float(timeouts.get("decision_seconds", 12)))
             output = pre_tool_output(decision or {}, data, config)
             if decision and decision.get("action") == "STOP":
                 acknowledge_stop_for(config, decision)
@@ -562,7 +563,7 @@ def run() -> dict | None:
             return output
         if hook == "PermissionRequest":
             decision = request(config, "POST", "/v1/decisions", {"event": event},
-                               timeout=float(timeouts.get("decision_seconds", 8)))
+                               timeout=float(timeouts.get("decision_seconds", 12)))
             return permission_output(decision or {}, config)
         if hook in ("Stop", "SubagentStop", "SessionEnd") and config["capture"].get("model_usage", True):
             calls = transcript_model_calls(data)

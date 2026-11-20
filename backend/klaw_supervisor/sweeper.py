@@ -109,6 +109,26 @@ async def reap_if_stale(
     return True
 
 
+async def _agent_look(session, execution: Execution, capabilities: set[str]) -> None:
+    """The Klaw agent's own look at a live session (no decision point needed)."""
+    from klaw_supervisor.supervision import agent as klaw_agent
+    from klaw_supervisor.supervision.engine import load_events, policy_for_execution
+
+    mode, config, _ = await policy_for_execution(session, execution)
+    if not klaw_agent.enabled(config) or not config.get("agent_monitor", True):
+        return
+    events = await load_events(session, execution.id)
+    record = await klaw_agent.monitor_session(
+        session, execution, events=events, mode=mode, config=config, capabilities=capabilities
+    )
+    if record and record.get("action") not in (None, "none"):
+        with contextlib.suppress(Exception):
+            await get_bus().publish(
+                user_channel(execution.user_id),
+                {"type": "agent.assessment", "execution_id": execution.id, "assessment": record},
+            )
+
+
 async def sweep_once() -> tuple[int, int]:
     """Evaluate every live execution. Returns ``(examined, reaped)``."""
     stale_after = get_settings().stale_execution_seconds
@@ -135,6 +155,7 @@ async def sweep_once() -> tuple[int, int]:
                     reaped += 1
                     continue
                 await evaluate_execution(session, execution)
+                await _agent_look(session, execution, capabilities)
             except Exception:
                 logger.exception("sweep failed for execution %s", execution.id)
                 await session.rollback()

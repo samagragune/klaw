@@ -68,6 +68,9 @@ CAPABILITIES = [
 ]
 TAG = "[Klaw supervisor]"
 MAX_TEXT = 4000
+#: Safety cap on completion reviews per run; the supervisor's own
+#: ``agent_max_attempts`` normally ends the loop sooner.
+MAX_COMPLETION_ATTEMPTS = 6
 
 _run_session: ContextVar[str | None] = ContextVar("klaw_openai_session", default=None)
 
@@ -290,6 +293,25 @@ class AgentsSupervisor:
         hooks = kwargs.pop("hooks", None)
         try:
             result = await Runner.run(agent, input, hooks=_ChainedHooks(self.hooks(), hooks), **kwargs)
+            # The Klaw agent judges the finished task: pass, incomplete or
+            # needs another attempt. Anything but pass sends the run back with
+            # its instructions (the supervisor caps how many times).
+            for _ in range(MAX_COMPLETION_ATTEMPTS):
+                output = _clip(result.final_output) if self.capture_outputs else None
+                event = self._event("TASK_COMPLETED", {"output": output})
+                decision = await asyncio.to_thread(self.client.decide, event, 60.0)
+                if decision is None:
+                    self.client.emit(event)  # supervisor unreachable: queue the event
+                    break
+                if decision.get("action") != "REDIRECT":
+                    break
+                feedback = decision.get("feedback") or decision.get("reason") or "Keep working."
+                follow_up = result.to_input_list() + [
+                    {"role": "user", "content": f"{TAG} {feedback}"}
+                ]
+                result = await Runner.run(
+                    result.last_agent, follow_up, hooks=_ChainedHooks(self.hooks(), hooks), **kwargs
+                )
         except RunStopped as exc:
             self.emit("AGENT_STOPPED", {"reason": str(exc), "terminal": True})
             await asyncio.to_thread(self.client.flush)
@@ -304,7 +326,6 @@ class AgentsSupervisor:
             raise
         else:
             output = _clip(result.final_output) if self.capture_outputs else None
-            self.emit("TASK_COMPLETED", {"output": output})
             self.emit("SESSION_ENDED", {"status": "completed", "output": output})
             await asyncio.to_thread(self.client.flush)
             return result

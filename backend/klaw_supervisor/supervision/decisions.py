@@ -63,6 +63,7 @@ from klaw_supervisor.models import (
     Task,
     utcnow,
 )
+from klaw_supervisor.supervision import agent as klaw_agent
 from klaw_supervisor.supervision import risk
 from klaw_supervisor.supervision.detectors import loop_groups
 from klaw_supervisor.supervision.engine import load_events, policy_for_execution, publish_incident
@@ -331,6 +332,157 @@ async def _completion_rule(
 
 
 # ---------------------------------------------------------------------------
+# The Klaw agent (model-driven decisions on top of the rules)
+# ---------------------------------------------------------------------------
+
+_RISK_SEVERITY = {
+    "none": IncidentSeverity.LOW,
+    "low": IncidentSeverity.LOW,
+    "medium": IncidentSeverity.MEDIUM,
+    "high": IncidentSeverity.HIGH,
+    "critical": IncidentSeverity.CRITICAL,
+}
+
+
+async def _agent_action(
+    session: AsyncSession,
+    execution: Execution,
+    task: Task | None,
+    task_events: list[ExecutionEvent],
+    tool_name: str | None,
+    tool_input: Any,
+    rule_verdict: Verdict | None,
+    mode: str,
+    config: dict[str, Any],
+) -> Verdict | None:
+    """Ask the Klaw agent about one tool call. ``None``: the rules decide."""
+    if not klaw_agent.enabled(config):
+        return None
+    if rule_verdict is not None and rule_verdict.rule.startswith("policy."):
+        return None  # the policy already settled it; no model call needed
+    findings = risk.assess(tool_name, tool_input) if config.get("risk_rules_enabled", True) else []
+    severity = findings[0].severity if findings else None
+    result = await klaw_agent.review_action(
+        session,
+        execution=execution,
+        task=task,
+        events=task_events,
+        tool_name=tool_name,
+        tool_input=tool_input,
+        rule_verdict=rule_verdict,
+        risk_severity=severity,
+        mode=mode,
+        config=config,
+    )
+    if result is None:
+        return None
+    if rule_verdict is not None and result.rule == rule_verdict.rule:
+        # The agent could not loosen a hard rule: keep the rule's incident.
+        return Verdict(
+            rule_verdict.action,
+            rule_verdict.rule,
+            result.reasoning,
+            feedback=result.guidance,
+            incident=rule_verdict.incident,
+        )
+    incident = None
+    if result.action in (A.BLOCK, A.STOP, A.REQUEST_APPROVAL):
+        incident = (rule_verdict.incident if rule_verdict and rule_verdict.incident else None) or {
+            "category": "agent_judgement",
+            "severity": _RISK_SEVERITY.get((result.risk or "").lower(), IncidentSeverity.MEDIUM),
+            "title": f"Klaw agent: {result.action.lower().replace('_', ' ')} {tool_name or 'action'}",
+            "description": result.reasoning,
+            "evidence": {"tool_name": tool_name, "risk": result.risk, "guidance": result.guidance},
+        }
+    return Verdict(
+        result.action, result.rule, result.reasoning, feedback=result.guidance, incident=incident
+    )
+
+
+def _with_queued_guidance(execution: Execution, verdict: Verdict | None) -> Verdict | None:
+    """Deliver guidance the agent queued on its own (monitoring) at this step."""
+    queued = klaw_agent.take_guidance(execution)
+    if not queued:
+        return verdict
+    text = " ".join(queued)
+    if verdict is None or verdict.action == A.ALLOW:
+        return Verdict(
+            A.WARN, "agent.guidance", "Klaw agent guidance from monitoring: " + text, feedback=text
+        )
+    joined = f"{verdict.feedback} Also: {text}" if verdict.feedback else text
+    return Verdict(
+        verdict.action, verdict.rule, verdict.reason, feedback=joined,
+        incident=verdict.incident, preview=verdict.preview,
+    )
+
+
+async def _agent_completion(
+    session: AsyncSession,
+    execution: Execution,
+    task: Task | None,
+    payload: dict[str, Any],
+    mode: str,
+    config: dict[str, Any],
+) -> Verdict | None:
+    """Agent finishes task -> model judges task + output -> pass / incomplete / retry."""
+    if task is None or not klaw_agent.enabled(config):
+        return None
+    events = [e for e in await load_events(session, execution.id) if e.task_id == task.id]
+    output = payload.get("output") or payload.get("output_summary")
+    result = await klaw_agent.review_completion(
+        session, execution=execution, task=task, events=events, output=output,
+        mode=mode, config=config,
+    )
+    if result is None:
+        return None
+    attempt = task.redirects + 1
+    max_attempts = int(config.get("agent_max_attempts", 2))
+    task.evaluation = {
+        "verdict": result.verdict,
+        "confidence": result.confidence,
+        "reasoning": result.reasoning,
+        "missing": result.missing,
+        "feedback": result.feedback,
+        "attempt": attempt,
+        "by": "klaw-agent",
+        "at": utcnow().isoformat(),
+    }
+    label = {"pass": "Pass", "incomplete": "Incomplete", "retry": "Needs another attempt"}[result.verdict]
+    if result.verdict == "pass" or result.confidence == "low":
+        note = "" if result.verdict == "pass" else f" (verdict {label}, low confidence: not sent back)"
+        return Verdict(A.ALLOW, "agent.completion.pass", f"{label}{note}: {result.reasoning}")
+    gaps = "\n".join(f"- {m}" for m in result.missing)
+    if task.redirects >= max_attempts:
+        return Verdict(
+            A.ESCALATE_TO_HUMAN,
+            "agent.completion.escalated",
+            f"{label} after {attempt} attempts; handed to a human: {result.reasoning}",
+            incident={
+                "category": "poor_output",
+                "severity": IncidentSeverity.MEDIUM,
+                "title": f"Task still {label.lower()} after {attempt} attempts",
+                "description": result.reasoning,
+                "evidence": {"missing": result.missing, "attempts": attempt},
+            },
+        )
+    head = (
+        "Not finished yet."
+        if result.verdict == "incomplete"
+        else "This needs another attempt with a different approach."
+    )
+    feedback = f"{head} {result.feedback or ''}".strip()
+    if gaps:
+        feedback += f"\nStill missing:\n{gaps}"
+    feedback += "\nIf something truly cannot be done, say exactly what and why."
+    return Verdict(
+        A.REDIRECT,
+        f"agent.completion.{result.verdict}",
+        f"{label} (attempt {attempt} of {max_attempts + 1}): {result.reasoning}",
+        feedback=feedback,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -362,19 +514,24 @@ async def decide(
             for e in all_events
             if (task is None or e.task_id == task.id) and (event is None or e.id != event.id)
         ]
-        verdict = (
+        rule_verdict = (
             _policy_lists(config, tool_name, mode)
             or _risk_rule(config, tool_name, tool_input)
             or _loop_rule(config, task_events, tool_name, payload.get("args_fingerprint"))
             or _approval_list(config, tool_name, mode)
         )
-        if verdict is None and tool_input is None and config.get("risk_rules_enabled", True):
-            verdict = Verdict(
+        if rule_verdict is None and tool_input is None and config.get("risk_rules_enabled", True):
+            rule_verdict = Verdict(
                 A.ALLOW,
                 "default.allow_unscreened",
                 "Allowed. The adapter did not send the tool input, so risk rules "
                 "could not screen it.",
             )
+        verdict = await _agent_action(
+            session, execution, task, task_events, tool_name, tool_input,
+            rule_verdict, mode, config,
+        ) or rule_verdict
+        verdict = _with_queued_guidance(execution, verdict)
     elif verdict is None and event_type == E.APPROVAL_REQUESTED:
         if config.get("forward_permission_requests"):
             verdict = Verdict(
@@ -383,9 +540,11 @@ async def decide(
                 f"{execution.platform} asked for permission to use '{tool_name}'.",
             )
     elif verdict is None and event_type == E.TASK_COMPLETED:
-        verdict = await _completion_rule(
-            session, execution, task, config, payload, already_redirected
-        )
+        verdict = await _agent_completion(session, execution, task, payload, mode, config)
+        if verdict is None:
+            verdict = await _completion_rule(
+                session, execution, task, config, payload, already_redirected
+            )
     verdict = verdict or Verdict(A.ALLOW, "default.allow", "No rule applies.")
 
     action, held_mode = _apply_mode(verdict, mode)
@@ -505,7 +664,11 @@ async def _trace(
     """Write the decision into the session timeline (non-ALLOW only)."""
     rows: list[CanonicalEvent] = []
     now = utcnow()
-    if decision.action != A.ALLOW or decision.intended_action:
+    if (
+        decision.action != A.ALLOW
+        or decision.intended_action
+        or decision.rule.startswith("agent.completion")
+    ):
         rows.append(
             CanonicalEvent(
                 event_id=f"decision-{decision.id}",
@@ -517,6 +680,7 @@ async def _trace(
                     "intended_action": decision.intended_action,
                     "rule": decision.rule,
                     "reason": decision.reason,
+                    "feedback": decision.feedback,
                     "tool_name": decision.tool_name,
                     "held_back": decision.held_back_reason,
                 },

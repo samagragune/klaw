@@ -291,6 +291,25 @@ class PolicyConfiguration(BaseModel):
     #: Most times one task can be sent back. Prevents correction loops.
     max_redirects: int = Field(default=1, ge=0, le=3)
 
+    # --- The Klaw agent (model-driven supervision) ---------------------------
+    #: Let the agent reason about every tool call, judge every finished task
+    #: and watch live sessions on its own. Needs a model (GEMINI_API_KEY);
+    #: without one the rules above decide alone.
+    agent_enabled: bool = True
+    #: Judge each finished task: pass / incomplete / needs another attempt.
+    agent_review_completion: bool = True
+    #: Times one task can be sent back before it goes to a human.
+    agent_max_attempts: int = Field(default=2, ge=0, le=5)
+    #: Look at live sessions unprompted and step in (guide, pause, stop).
+    agent_monitor: bool = True
+    agent_monitor_interval_seconds: int = Field(default=45, ge=15, le=3600)
+    #: Longest a tool call waits for the agent before the rules decide alone.
+    agent_action_timeout_seconds: float = Field(default=10, ge=1, le=60)
+    agent_completion_timeout_seconds: float = Field(default=30, ge=5, le=120)
+    #: Judge completions with SUPERVISOR_MODEL instead of the fast model.
+    #: More thorough, much slower; the agent waits for it at every Stop.
+    agent_completion_deep_model: bool = False
+
     #: Route the platform's own permission prompts (Claude Code
     #: ``PermissionRequest``) to the dashboard approval queue. Off: the
     #: platform asks locally as usual (headless sessions deny).
@@ -303,7 +322,7 @@ SupervisionModeIn = Literal["observe", "recommend", "control", "assist", "autopi
 class PolicyUpsert(BaseModel):
     agent_id: str | None = None
     name: str = "default"
-    supervision_mode: SupervisionModeIn = "recommend"
+    supervision_mode: SupervisionModeIn = "control"
     configuration: PolicyConfiguration = Field(default_factory=PolicyConfiguration)
 
     @field_validator("supervision_mode")

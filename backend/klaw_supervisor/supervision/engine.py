@@ -44,7 +44,7 @@ from klaw_supervisor.supervision.detectors import Detection, run_detectors
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG: dict[str, Any] = PolicyConfiguration().model_dump()
-DEFAULT_MODE = SupervisionMode.RECOMMEND
+DEFAULT_MODE = SupervisionMode.CONTROL
 
 #: Defaults that differ by platform. A Claude Code task is a human-scale unit
 #: of work (minutes, hundreds of tool calls), and hooks report no token usage.

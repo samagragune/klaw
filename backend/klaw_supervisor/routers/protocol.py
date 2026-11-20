@@ -30,6 +30,7 @@ from klaw_supervisor.schemas import (
     ProtocolIngestOut,
 )
 from klaw_supervisor.security import CurrentPrincipal, DbSession, Principal, record_audit
+from klaw_supervisor.supervision import agent as klaw_agent
 from klaw_supervisor.supervision.decisions import decide
 from klaw_supervisor.supervision.engine import policy_for_execution
 from klaw_supervisor.supervision.output_review import schedule_output_review
@@ -54,10 +55,17 @@ async def owned_execution(session, principal: Principal, execution_id: str) -> E
 
 
 async def _maybe_review(session, execution: Execution, task_ids: list[str]) -> None:
-    if not task_ids or not provider_configured():
+    if not task_ids:
         return
     _, config, _ = await policy_for_execution(session, execution)
-    if not config.get("evaluate_output_on_completion"):
+    if klaw_agent.enabled(config) and config.get("agent_review_completion", True):
+        # The Klaw agent judges every finished task (pass / incomplete / retry).
+        from klaw_supervisor.routers.agent import schedule_completion_review
+
+        for task_id in task_ids:
+            schedule_completion_review(execution.id, task_id)
+        return
+    if not provider_configured() or not config.get("evaluate_output_on_completion"):
         return
     for task_id in task_ids:
         schedule_output_review(execution.id, task_id)
@@ -115,7 +123,11 @@ async def request_decision(
             detail={"rule": decision.rule, "reason": decision.reason, "tool": decision.tool_name},
         )
     await session.commit()
-    if body.event.event_type == E.TASK_COMPLETED and decision.action == "ALLOW":
+    if (
+        body.event.event_type == E.TASK_COMPLETED
+        and decision.action == "ALLOW"
+        and not decision.rule.startswith("agent.completion")
+    ):
         await _maybe_review(session, execution, batch.completed_tasks)
 
     ticket = None
