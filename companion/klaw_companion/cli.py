@@ -53,7 +53,7 @@ CLAUDE_CODE_EVENTS: dict[str, int] = {
     "PostToolUseFailure": 10,
     "SubagentStart": 10,
     "SubagentStop": 10,
-    "Stop": 60,
+    "Stop": 180,
     "StopFailure": 10,
     "Notification": 10,
     "PreCompact": 10,
@@ -127,7 +127,7 @@ def cmd_connect(args) -> int:
     config.setdefault("timeouts", {
         "event_seconds": 4,
         "decision_seconds": 12,
-        "completion_review_seconds": 45,
+        "completion_review_seconds": 150,
         "approval_max_seconds": 540,
     })
     try:

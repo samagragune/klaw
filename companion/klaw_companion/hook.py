@@ -576,7 +576,7 @@ def run() -> dict | None:
         if hook == "Stop":
             decision = request(config, "POST", "/v1/decisions", {
                 "event": event, "already_redirected": bool(data.get("stop_hook_active")),
-            }, timeout=float(timeouts.get("completion_review_seconds", 45)))
+            }, timeout=float(timeouts.get("completion_review_seconds", 150)))
             return stop_output(decision or {})
         response = request(config, "POST", "/v1/events", {"events": [event]},
                            timeout=float(timeouts.get("event_seconds", 4)))

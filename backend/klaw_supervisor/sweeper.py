@@ -118,9 +118,11 @@ async def _agent_look(session, execution: Execution, capabilities: set[str]) -> 
     if not klaw_agent.enabled(config) or not config.get("agent_monitor", True):
         return
     events = await load_events(session, execution.id)
+    before = klaw_agent.snapshot(execution)
     record = await klaw_agent.monitor_session(
         session, execution, events=events, mode=mode, config=config, capabilities=capabilities
     )
+    await klaw_agent.merge_after(session, execution, before)
     if record and record.get("action") not in (None, "none"):
         with contextlib.suppress(Exception):
             await get_bus().publish(

@@ -661,3 +661,16 @@ class AuditLog(Base, TimestampMixin):
     target_type: Mapped[str] = mapped_column(String(40), nullable=False)
     target_id: Mapped[str] = mapped_column(String(36), nullable=False)
     detail: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class AgentMemory(Base, TimestampMixin):
+    """What the Klaw agent has learned about a project, kept across sessions."""
+
+    __tablename__ = "agent_memory"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    #: The project folder (session cwd) or "*" for everything.
+    project: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str | None] = mapped_column(String(36))

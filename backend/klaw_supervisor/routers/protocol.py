@@ -71,16 +71,34 @@ async def _maybe_review(session, execution: Execution, task_ids: list[str]) -> N
         schedule_output_review(execution.id, task_id)
 
 
+async def _new_tasks(session, batch) -> list[tuple[str, str]]:
+    """Tasks that just started, for the Klaw agent to plan."""
+    starts = [e for e in batch.stored if e.event_type in (E.PROMPT_SUBMITTED, E.TASK_CREATED) and e.task_id]
+    if not starts:
+        return []
+    _, config, _ = await policy_for_execution(session, batch.execution)
+    if not klaw_agent.enabled(config) or not config.get("agent_plan_tasks", True):
+        return []
+    return list(dict.fromkeys((batch.execution.id, e.task_id) for e in starts))
+
+
 @router.post("/events", response_model=ProtocolIngestOut)
 async def ingest_events(
     body: ProtocolBatchIn, principal: CurrentPrincipal, session: DbSession
 ) -> ProtocolIngestOut:
     batches = await ingest_protocol(session, principal, body.events)
     out = []
+    to_plan: list[tuple[str, str]] = []
     for batch in batches:
         out.append(await session_control(session, batch.execution))
         await _maybe_review(session, batch.execution, batch.completed_tasks)
+        to_plan += await _new_tasks(session, batch)
     await session.commit()
+    if to_plan:
+        from klaw_supervisor.routers.agent import schedule_plan
+
+        for execution_id, task_id in to_plan:
+            schedule_plan(execution_id, task_id)
     return ProtocolIngestOut(
         accepted=sum(len(b.stored) for b in batches),
         duplicates=sum(b.duplicates for b in batches),

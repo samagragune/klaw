@@ -7,6 +7,7 @@ from datetime import timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import case, func, select
 
 from klaw_supervisor import events as E
@@ -194,6 +195,8 @@ async def agent_session_view(execution_id: str, user: CurrentUser, session: DbSe
         "assessments": state.get("assessments") or [],
         "last_assessment": state.get("last_assessment"),
         "inbox": state.get("inbox") or [],
+        "plans": state.get("plans") or {},
+        "investigations": state.get("investigations") or [],
     }
 
 
@@ -259,3 +262,69 @@ def schedule_completion_review(execution_id: str, task_id: str) -> None:
     task = asyncio.create_task(_review_in_background(execution_id, task_id))
     _background.add(task)
     task.add_done_callback(_background.discard)
+
+
+# ---------------------------------------------------------------------------
+# Planning when a task starts (background: never delays the supervised agent)
+# ---------------------------------------------------------------------------
+
+async def _plan_in_background(execution_id: str, task_id: str) -> None:
+    from klaw_supervisor.db import SessionLocal
+
+    try:
+        async with SessionLocal() as session:
+            execution = await session.get(Execution, execution_id)
+            task = await session.get(Task, task_id)
+            if execution is None or task is None:
+                return
+            mode, config, _ = await policy_for_execution(session, execution)
+            before = klaw_agent.snapshot(execution)
+            await klaw_agent.plan_task(session, execution, task, mode, config)
+            await klaw_agent.merge_after(session, execution, before)
+            await session.commit()
+    except Exception:
+        logger.exception("agent planning failed for %s", execution_id)
+
+
+def schedule_plan(execution_id: str, task_id: str) -> None:
+    task = asyncio.create_task(_plan_in_background(execution_id, task_id))
+    _background.add(task)
+    task.add_done_callback(_background.discard)
+
+
+# ---------------------------------------------------------------------------
+# Talking to the agent
+# ---------------------------------------------------------------------------
+
+class ChatIn(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    execution_id: str | None = None
+    history: list[dict[str, str]] = Field(default_factory=list, max_length=20)
+
+
+@router.post("/chat")
+async def agent_chat(body: ChatIn, user: CurrentUser, session: DbSession) -> dict[str, Any]:
+    """Ask the Klaw agent something, or tell it to do something, about a session.
+
+    Without ``execution_id`` the most recently active session is used.
+    """
+    from klaw_supervisor.supervision.engine import execution_capabilities
+
+    query = select(Execution).where(Execution.user_id == user.id)
+    if body.execution_id:
+        query = query.where(Execution.id == body.execution_id)
+    else:
+        query = query.order_by(Execution.last_event_at.desc())
+    execution = (await session.execute(query.limit(1))).scalars().first()
+    if execution is None:
+        return {"answer": "There is no session to talk about yet.", "steps": [], "effects": []}
+    task = await session.get(Task, execution.current_task_id) if execution.current_task_id else None
+    mode, config, _ = await policy_for_execution(session, execution)
+    capabilities = await execution_capabilities(session, execution)
+    before = klaw_agent.snapshot(execution)
+    result = await klaw_agent.converse(
+        session, execution, task, body.message, mode, config, capabilities, body.history
+    )
+    await klaw_agent.merge_after(session, execution, before)
+    await session.commit()
+    return {**result, "execution_id": execution.id}

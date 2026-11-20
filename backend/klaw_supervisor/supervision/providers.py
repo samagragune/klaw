@@ -73,6 +73,8 @@ def _raise_for_status(response: httpx.Response) -> None:
 
 class LLMProvider(ABC):
     name: str = "unknown"
+    #: Whether ``converse`` (function calling) is available.
+    supports_tools: bool = False
 
     def __init__(self, model: str, api_key: str, base_url: str = "") -> None:
         self.model = model
@@ -114,6 +116,54 @@ class GeminiProvider(LLMProvider):
             raise EvaluatorUnavailable("Gemini returned no candidates")
         parts = candidates[0].get("content", {}).get("parts", [])
         return "".join(part.get("text", "") for part in parts)
+
+
+    #: The Klaw agent's loop needs function calling; Gemini has it here.
+    supports_tools = True
+
+    async def converse(
+        self,
+        system: str,
+        contents: list[dict],
+        tools: list[dict],
+        *,
+        force: list[str] | None = None,
+    ) -> dict:
+        """One turn of a function-calling conversation.
+
+        ``contents`` is the running conversation (Gemini format); the model's
+        reply is returned as-is (it must be sent back unchanged, including any
+        thought signatures). ``force`` restricts the reply to calling one of
+        those functions.
+        """
+        base = self._base_url or self.DEFAULT_BASE
+        url = f"{base}/models/{self.model}:generateContent"
+        body: dict = {
+            "systemInstruction": {"parts": [{"text": system}]},
+            "contents": contents,
+            "tools": [{"functionDeclarations": tools}],
+            "generationConfig": {"temperature": 0.2},
+        }
+        if force:
+            body["toolConfig"] = {
+                "functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": force}
+            }
+        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+            response = await _post(client, url, json=body, headers={"x-goog-api-key": self._api_key})
+            _raise_for_status(response)
+            data = response.json()
+        usage = data.get("usageMetadata") or {}
+        self.last_usage = (
+            int(usage.get("promptTokenCount") or 0),
+            int(usage.get("candidatesTokenCount") or 0) + int(usage.get("thoughtsTokenCount") or 0),
+        )
+        candidates = data.get("candidates") or []
+        if not candidates:
+            raise EvaluatorUnavailable("Gemini returned no candidates")
+        content = candidates[0].get("content") or {"role": "model", "parts": []}
+        content.setdefault("role", "model")
+        content.setdefault("parts", [])
+        return content
 
 
 class OpenAIProvider(LLMProvider):

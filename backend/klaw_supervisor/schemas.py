@@ -309,6 +309,16 @@ class PolicyConfiguration(BaseModel):
     #: Judge completions with SUPERVISOR_MODEL instead of the fast model.
     #: More thorough, much slower; the agent waits for it at every Stop.
     agent_completion_deep_model: bool = False
+    #: Work out each new task's requirements and how to verify them.
+    agent_plan_tasks: bool = True
+    #: Commands the agent may run in the session's project folder, by name
+    #: (it picks a name, never a command), e.g. {"tests": "pytest -q"}.
+    #: Empty: the agent verifies by reading files and the diff only.
+    agent_checks: dict[str, str] = Field(default_factory=dict)
+    agent_check_timeout_seconds: float = Field(default=90, ge=5, le=600)
+    #: Budget of one investigation (verifying a completion).
+    agent_max_steps: int = Field(default=8, ge=1, le=20)
+    agent_investigation_seconds: float = Field(default=90, ge=10, le=600)
 
     #: Route the platform's own permission prompts (Claude Code
     #: ``PermissionRequest``) to the dashboard approval queue. Off: the
