@@ -57,6 +57,21 @@ engine = create_async_engine(
 )
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
+if engine.url.get_backend_name() == "sqlite":
+    from sqlalchemy import event
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _sqlite_concurrency(dbapi_connection, _record) -> None:
+        """The Klaw agent works in the background while decisions arrive.
+
+        WAL lets reads proceed during a write; busy_timeout makes a writer wait
+        for the lock instead of failing at once with "database is locked".
+        """
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
+        cursor.close()
+
 
 async def get_session() -> AsyncIterator[AsyncSession]:
     async with SessionLocal() as session:

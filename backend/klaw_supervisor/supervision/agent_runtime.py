@@ -96,6 +96,12 @@ async def run_agent(
                 latency_ms=round((time.perf_counter() - t0) * 1000, 1), ok=ok,
             ))
 
+    # Writes made during the investigation (notes, plan) wait for the caller's
+    # commit instead of being flushed by a tool's query and holding the lock.
+    sync = getattr(ctx.session, "sync_session", None)
+    autoflush = sync.autoflush if sync is not None else None
+    if sync is not None:
+        sync.autoflush = False
     try:
         for step in range(max_steps):
             if time.monotonic() > deadline - 2:
@@ -148,6 +154,8 @@ async def run_agent(
         logger.warning("Klaw agent run (%s) failed: %s", purpose, run.error)
         return run
     finally:
+        if sync is not None:
+            sync.autoflush = autoflush
         run.seconds = round(time.monotonic() - started, 2)
 
 
