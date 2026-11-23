@@ -40,24 +40,20 @@ class LoopBrain(LLMProvider):
         self.seen: list[str] = []  # every tool output the model was shown
 
     @staticmethod
-    def _kind(system: str, contents) -> str:
-        text = contents[0]["parts"][0]["text"]
+    def _kind(system: str, messages) -> str:
+        text = messages[0]["text"]
         for marker, kind in (("claims the task is finished", "verify"), ("new task has started", "plan"),
                              ("THE OPERATOR", "chat"), ("YOUR FIRST LOOK", "monitor")):
             if marker in text:
                 return kind
         return "other"
 
-    async def converse(self, system, contents, tools, *, force=None):
-        outputs = [
-            part["functionResponse"]["response"]["untrusted_output"]
-            for message in contents if message["role"] == "user"
-            for part in message["parts"] if "functionResponse" in part
-        ]
+    async def converse(self, system, messages, tools, *, force=None):
+        outputs = [r["output"] for m in messages if m["role"] == "tool" for r in m["results"]]
         self.seen = outputs
-        name, args = self.policy(self._kind(system, contents), outputs)
+        name, args = self.policy(self._kind(system, messages), outputs)
         self.last_usage = (300, 30)
-        return {"role": "model", "parts": [{"functionCall": {"name": name, "args": args}}]}
+        return {"text": "", "calls": [{"id": f"c{len(outputs)}", "name": name, "args": args}], "raw": None}
 
     async def complete(self, system: str, prompt: str) -> str:  # quick single-shot checks
         self.last_usage = (100, 10)

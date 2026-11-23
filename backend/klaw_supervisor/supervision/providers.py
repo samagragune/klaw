@@ -118,54 +118,6 @@ class GeminiProvider(LLMProvider):
         return "".join(part.get("text", "") for part in parts)
 
 
-    #: The Klaw agent's loop needs function calling; Gemini has it here.
-    supports_tools = True
-
-    async def converse(
-        self,
-        system: str,
-        contents: list[dict],
-        tools: list[dict],
-        *,
-        force: list[str] | None = None,
-    ) -> dict:
-        """One turn of a function-calling conversation.
-
-        ``contents`` is the running conversation (Gemini format); the model's
-        reply is returned as-is (it must be sent back unchanged, including any
-        thought signatures). ``force`` restricts the reply to calling one of
-        those functions.
-        """
-        base = self._base_url or self.DEFAULT_BASE
-        url = f"{base}/models/{self.model}:generateContent"
-        body: dict = {
-            "systemInstruction": {"parts": [{"text": system}]},
-            "contents": contents,
-            "tools": [{"functionDeclarations": tools}],
-            "generationConfig": {"temperature": 0.2},
-        }
-        if force:
-            body["toolConfig"] = {
-                "functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": force}
-            }
-        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
-            response = await _post(client, url, json=body, headers={"x-goog-api-key": self._api_key})
-            _raise_for_status(response)
-            data = response.json()
-        usage = data.get("usageMetadata") or {}
-        self.last_usage = (
-            int(usage.get("promptTokenCount") or 0),
-            int(usage.get("candidatesTokenCount") or 0) + int(usage.get("thoughtsTokenCount") or 0),
-        )
-        candidates = data.get("candidates") or []
-        if not candidates:
-            raise EvaluatorUnavailable("Gemini returned no candidates")
-        content = candidates[0].get("content") or {"role": "model", "parts": []}
-        content.setdefault("role", "model")
-        content.setdefault("parts", [])
-        return content
-
-
 class OpenAIProvider(LLMProvider):
     name = "openai"
     DEFAULT_BASE = "https://api.openai.com/v1"
@@ -186,7 +138,7 @@ class OpenAIProvider(LLMProvider):
                 client,
                 f"{base}/chat/completions",
                 json=body,
-                headers={"Authorization": f"Bearer {self._api_key}"},
+                headers={"Authorization": f"Bearer {self._api_key}"} if self._api_key else {},
             )
             _raise_for_status(response)
             data = response.json()
@@ -231,6 +183,13 @@ class AnthropicProvider(LLMProvider):
         )
 
 
+class OllamaProvider(OpenAIProvider):
+    """A model on this machine via Ollama's OpenAI-compatible API. No key needed."""
+
+    name = "ollama"
+    DEFAULT_BASE = "http://localhost:11434/v1"
+
+
 class FakeProvider(LLMProvider):
     """Deterministic provider for tests and offline demos.
 
@@ -259,6 +218,7 @@ _PROVIDERS: dict[str, type[LLMProvider]] = {
     "gemini": GeminiProvider,
     "openai": OpenAIProvider,
     "anthropic": AnthropicProvider,
+    "ollama": OllamaProvider,
     "fake": FakeProvider,
 }
 
@@ -280,7 +240,7 @@ def get_provider(tier: str = "deep") -> LLMProvider:
     cls = _PROVIDERS.get(choice)
     if cls is None:  # pragma: no cover - guarded by Settings validation
         raise EvaluatorUnavailable(f"Unsupported provider: {choice}")
-    if choice != "fake" and not settings.supervisor_llm_api_key:
+    if choice not in ("fake", "ollama") and not settings.supervisor_llm_api_key:
         raise EvaluatorUnavailable(
             f"SUPERVISOR_LLM_PROVIDER={choice} but SUPERVISOR_LLM_API_KEY is empty."
         )

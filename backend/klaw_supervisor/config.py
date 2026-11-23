@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     dev_user_email: str = "dev@klaw.local"
     dev_session_token: str = "local-dev-token-change-me"
 
-    supervisor_llm_provider: Literal["gemini", "openai", "anthropic", "fake", "none"] = "none"
+    supervisor_llm_provider: Literal["gemini", "openai", "anthropic", "ollama", "fake", "none"] = "none"
     supervisor_model: str = "gemini-3.5-flash"
     #: Cheaper model for routine screening; empty = use supervisor_model.
     supervisor_fast_model: str = ""

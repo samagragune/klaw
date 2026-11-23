@@ -19,6 +19,7 @@ from klaw_supervisor.models import EvaluatorCall
 from klaw_supervisor.pricing import estimate_cost
 from klaw_supervisor.supervision.agent_tools import Tool, ToolContext
 from klaw_supervisor.supervision.providers import EvaluatorUnavailable, get_provider
+from klaw_supervisor.supervision.tool_calling import converse, supports_tools
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class AgentRun:
 
 def tools_available(tier: str = "fast") -> bool:
     try:
-        return bool(getattr(get_provider(tier), "supports_tools", False))
+        return supports_tools(get_provider(tier))
     except EvaluatorUnavailable:
         return False
 
@@ -72,19 +73,19 @@ async def run_agent(
     declarations = [tool.declaration() for tool in tools] + [
         {"name": "finish", "description": "Give your conclusion. Ends the task.", "parameters": finish}
     ]
-    contents: list[dict[str, Any]] = [{"role": "user", "parts": [{"text": goal}]}]
+    messages: list[dict[str, Any]] = [{"role": "user", "text": goal}]
     run = AgentRun(finished=False, result={})
 
-    async def turn(force: list[str] | None = None) -> dict[str, Any]:
+    async def turn(force: str | None = None) -> dict[str, Any]:
         remaining = max(3.0, deadline - time.monotonic())
         t0 = time.perf_counter()
         ok = False
         try:
-            content = await asyncio.wait_for(
-                provider.converse(system, contents, declarations, force=force), timeout=remaining
+            reply = await asyncio.wait_for(
+                converse(provider, system, messages, declarations, force=force), timeout=remaining
             )
             ok = True
-            return content
+            return reply
         finally:
             run.model_calls += 1
             prompt_tokens, completion_tokens = getattr(provider, "last_usage", (0, 0))
@@ -99,12 +100,12 @@ async def run_agent(
         for step in range(max_steps):
             if time.monotonic() > deadline - 2:
                 break
-            content = await turn()
-            contents.append(content)
-            calls = [p["functionCall"] for p in content.get("parts", []) if "functionCall" in p]
+            reply = await turn()
+            calls = reply["calls"]
+            messages.append({"role": "assistant", "text": reply["text"], "calls": calls, "raw": reply["raw"]})
             if not calls:
                 # The model answered in text; ask it to conclude properly.
-                contents.append({"role": "user", "parts": [{"text": "Call finish with your conclusion."}]})
+                messages.append({"role": "user", "text": "Call finish with your conclusion."})
                 continue
             replies = []
             for call in calls:
@@ -126,18 +127,19 @@ async def run_agent(
                         logger.exception("agent tool %s failed", name)
                         output = f"Tool error: {type(exc).__name__}: {exc}"
                 run.steps.append({"tool": name, "args": args, "result": output})
-                replies.append({"functionResponse": {
-                    "name": name,
-                    "response": {"untrusted_output": output},
-                }})
-            contents.append({"role": "user", "parts": replies})
+                replies.append({"id": call.get("id"), "name": name, "output": output})
+            messages.append({"role": "tool", "results": replies})
         # Out of steps or time: conclude with what is known.
-        contents.append({"role": "user", "parts": [{"text":
-            "Your budget is used up. Call finish now with your best conclusion from the evidence so far."}]})
-        content = await turn(force=["finish"])
-        for part in content.get("parts", []):
-            call = part.get("functionCall")
-            if call and call.get("name") == "finish":
+        if messages[-1]["role"] == "assistant" and messages[-1]["calls"]:
+            # Every call needs an answer before the next user turn.
+            messages.append({"role": "tool", "results": [
+                {"id": c.get("id"), "name": c.get("name"), "output": "Not run: budget used up."}
+                for c in messages[-1]["calls"]]})
+        messages.append({"role": "user", "text":
+            "Your budget is used up. Call finish now with your best conclusion from the evidence so far."})
+        reply = await turn(force="finish")
+        for call in reply["calls"]:
+            if call.get("name") == "finish":
                 run.finished = True
                 run.result = call.get("args") or {}
         return run

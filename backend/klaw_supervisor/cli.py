@@ -3,6 +3,8 @@
     klaw-supervisor start            # http://127.0.0.1:8000, data in ~/.klaw/supervisor
     klaw-supervisor start --port 9000 --allow-origin https://my-dashboard.example
     klaw-supervisor set-key          # the Gemini key the Klaw agent reasons with
+    klaw-supervisor set-brain anthropic              # or openai --model ..., openrouter, groq,
+                                     # deepseek, ollama (local, no key), custom
     klaw-supervisor info
 
 Zero configuration: the first start creates a data directory holding the
@@ -136,6 +138,70 @@ def cmd_set_key(args: argparse.Namespace) -> int:
     return 0
 
 
+#: Ready-made brains: provider, base URL, deep model, fast model.
+BRAINS = {
+    "gemini": ("gemini", "", "gemini-3.5-flash", "gemini-3.5-flash-lite"),
+    "openai": ("openai", "", "", ""),
+    "anthropic": ("anthropic", "", "claude-sonnet-5-5", "claude-haiku-5-5"),
+    "openrouter": ("openai", "https://openrouter.ai/api/v1", "", ""),
+    "groq": ("openai", "https://api.groq.com/openai/v1", "", ""),
+    "deepseek": ("openai", "https://api.deepseek.com/v1", "deepseek-chat", "deepseek-chat"),
+    "ollama": ("ollama", "http://localhost:11434/v1", "qwen3:8b", "qwen3:8b"),
+    "custom": ("openai", "", "", ""),
+}
+BRAIN_KEYS = ("SUPERVISOR_LLM_PROVIDER", "SUPERVISOR_LLM_BASE_URL", "SUPERVISOR_MODEL",
+              "SUPERVISOR_FAST_MODEL", "SUPERVISOR_LLM_API_KEY")
+
+
+def _write_config(config: Path, values: dict[str, str]) -> None:
+    keep = [
+        line for line in config.read_text(encoding="utf-8").splitlines()
+        if not any(line.strip().lstrip("# ").startswith(key + "=") for key in values)
+    ]
+    keep += [f"{key}={value}" for key, value in values.items() if value != ""]
+    config.write_text("\n".join(keep) + "\n", encoding="utf-8")
+    try:
+        os.chmod(config, 0o600)
+    except OSError:
+        pass
+
+
+def cmd_set_brain(args: argparse.Namespace) -> int:
+    """Choose the model the Klaw agent thinks with, and give it your key."""
+    import getpass
+
+    data_dir = Path(args.data_dir).expanduser() if args.data_dir else default_data_dir()
+    prepare(data_dir, [])
+    provider, base, deep, fast = BRAINS[args.brain]
+    base = args.base_url or base
+    deep = args.model or deep
+    fast = args.fast_model or args.model or fast
+    if not deep:
+        print(f"--model is required for {args.brain} (the model name at that provider).")
+        return 1
+    if args.brain == "custom" and not base:
+        print("--base-url is required for a custom OpenAI-compatible endpoint.")
+        return 1
+    key = args.key or ""
+    if not key and provider != "ollama":
+        key = getpass.getpass(f"{args.brain} API key (input hidden): ").strip()
+        if not key:
+            print("No key given; nothing changed.")
+            return 1
+    values = {
+        "SUPERVISOR_LLM_PROVIDER": provider,
+        "SUPERVISOR_LLM_BASE_URL": base,
+        "SUPERVISOR_MODEL": deep,
+        "SUPERVISOR_FAST_MODEL": fast,
+        "SUPERVISOR_LLM_API_KEY": key,
+    }
+    config = data_dir / "config.env"
+    _write_config(config, {k: values.get(k, "") for k in BRAIN_KEYS})
+    print(f"The Klaw agent will think with {args.brain}: {fast} per action, {deep} per task.")
+    print(f"Saved to {config}. Restart `klaw-supervisor start` to use it.")
+    return 0
+
+
 def cmd_info(args: argparse.Namespace) -> int:
     from klaw_supervisor import __version__
 
@@ -161,6 +227,14 @@ def main(argv: list[str] | None = None) -> int:
     set_key.add_argument("--key", help="the key (omit to type it hidden)")
     set_key.add_argument("--data-dir")
     set_key.set_defaults(fn=cmd_set_key)
+    set_brain = sub.add_parser("set-brain", help="choose the model the Klaw agent thinks with")
+    set_brain.add_argument("brain", choices=list(BRAINS), help="provider (ollama runs on this machine, no key)")
+    set_brain.add_argument("--model", help="model name (deep tier: verification, investigations)")
+    set_brain.add_argument("--fast-model", help="model for per-action checks (default: --model)")
+    set_brain.add_argument("--base-url", help="OpenAI-compatible endpoint (custom, or override)")
+    set_brain.add_argument("--key", help="API key (omit to type it hidden)")
+    set_brain.add_argument("--data-dir")
+    set_brain.set_defaults(fn=cmd_set_brain)
     info = sub.add_parser("info", help="show where things are")
     info.add_argument("--data-dir")
     info.set_defaults(fn=cmd_info)
