@@ -114,12 +114,12 @@ export function Button({
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const variants: Record<ButtonVariant, string> = {
     default:
-      "press border border-black/[0.12] bg-white text-ink shadow-[0_1px_2px_rgba(28,27,25,0.05)] hover:bg-[#f6f4ef]",
+      "press border border-[rgba(241,233,222,0.15)] bg-[rgba(241,233,222,0.05)] text-ink hover:bg-[rgba(241,233,222,0.1)]",
     primary:
-      "press ripple-light border border-[#1d1d1f] bg-[#1d1d1f] text-white shadow-[0_6px_16px_-8px_rgba(0,0,0,0.55)] hover:bg-[#2c2c2f]",
+      "press border border-[#f1e9de] bg-[#f1e9de] text-[#141118] hover:bg-white",
     danger:
-      "press border border-[rgba(217,59,59,0.25)] bg-[rgba(217,59,59,0.06)] text-[var(--failed)] hover:bg-[rgba(217,59,59,0.12)]",
-    ghost: "press border border-transparent text-muted hover:bg-black/[0.04] hover:text-ink",
+      "press border border-[rgba(255,106,92,0.3)] bg-[rgba(255,106,92,0.08)] text-[var(--failed)] hover:bg-[rgba(255,106,92,0.15)]",
+    ghost: "press border border-transparent text-muted hover:bg-[rgba(241,233,222,0.06)] hover:text-ink",
   };
   return (
     <button
@@ -144,7 +144,7 @@ export function Input({
   return (
     <input
       className={cn(
-        "w-full rounded-lg border border-black/[0.12] bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-faint focus:border-[#1d1d1f] focus:ring-4 focus:ring-black/[0.06]",
+        "w-full rounded-lg border border-[rgba(241,233,222,0.14)] bg-[#0f0d13] px-3 py-2 text-sm text-ink outline-none transition placeholder:text-faint focus:border-[var(--accent)] focus:ring-4 focus:ring-[rgba(255,106,77,0.15)]",
         "placeholder:text-faint focus:border-[var(--accent)] focus:outline-none",
         className,
       )}
@@ -161,7 +161,7 @@ export function Select({
   return (
     <select
       className={cn(
-        "rounded-lg border border-black/[0.12] bg-white px-2.5 py-2 text-sm text-ink outline-none focus:border-[#1d1d1f]",
+        "rounded-lg border border-[rgba(241,233,222,0.14)] bg-[#0f0d13] px-2.5 py-2 text-sm text-ink outline-none focus:border-[var(--accent)]",
         "focus:border-[var(--accent)] focus:outline-none",
         className,
       )}

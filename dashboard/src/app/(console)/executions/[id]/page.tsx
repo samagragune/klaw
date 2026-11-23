@@ -170,7 +170,7 @@ export default function ExecutionPage() {
         </div>
 
         {data.error ? (
-          <Card className="border-[rgba(255,93,93,0.28)] bg-[rgba(255,93,93,0.07)] px-4 py-3">
+          <Card className="border-[rgba(255,106,92,0.28)] bg-[rgba(255,106,92,0.07)] px-4 py-3">
             <div className="text-[11px] uppercase tracking-wide text-[var(--failed)]">
               {data.status === "cancelled" ? "Cancellation reason" : "Failure"}
             </div>

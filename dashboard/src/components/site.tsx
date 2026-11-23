@@ -36,15 +36,15 @@ export function SiteNav() {
   return (
     <header className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
       <nav className="glass-float pointer-events-auto flex items-center gap-1 rounded-[14px] p-1.5">
-        <Link href="/" aria-label="Klaw home" className="press grid size-9 place-items-center rounded-[10px] bg-white/70 text-ink">
+        <Link href="/" aria-label="Klaw home" className="press grid size-9 place-items-center rounded-[10px] bg-[rgba(241,233,222,0.1)] text-ink">
           <ClawMark size={20} />
         </Link>
         {NAV.map((item) => (
-          <Link key={item.href} href={item.href} className="press hidden rounded-[10px] px-3 py-2 text-[14.5px] font-medium text-ink/80 hover:bg-white/60 hover:text-ink sm:block">
+          <Link key={item.href} href={item.href} className="press hidden rounded-[10px] px-3 py-2 text-[14.5px] font-medium text-ink/80 hover:bg-[rgba(241,233,222,0.08)] hover:text-ink sm:block">
             {item.label}
           </Link>
         ))}
-        <Link href="/login" className="press rounded-[10px] px-3 py-2 text-[14.5px] font-medium text-ink/80 hover:bg-white/60 hover:text-ink">
+        <Link href="/login" className="press rounded-[10px] px-3 py-2 text-[14.5px] font-medium text-ink/80 hover:bg-[rgba(241,233,222,0.08)] hover:text-ink">
           Sign in
         </Link>
         <Link href="/login?mode=signup" className="btn btn-sm btn-accent ml-1">

@@ -64,16 +64,16 @@ class Canvas {
 }
 
 const C = {
-  wall: hex("#e7d3bd"),
-  wallShade: hex("#cdb59c"),
-  wallDeep: hex("#b39a80"),
-  beam: hex("#8a6f58"),
-  floor: hex("#a7896e"),
-  floorDark: hex("#8d7158"),
-  ink: hex("#24232b"),
-  inkSoft: hex("#3a3946"),
-  steel: hex("#5d5c6b"),
-  steelLight: hex("#8a899a"),
+  wall: hex("#262130"),
+  wallShade: hex("#1f1b28"),
+  wallDeep: hex("#17141e"),
+  beam: hex("#3b3243"),
+  floor: hex("#2c2532"),
+  floorDark: hex("#221c28"),
+  ink: hex("#0e0d12"),
+  inkSoft: hex("#1c1a23"),
+  steel: hex("#4c4858"),
+  steelLight: hex("#7d7890"),
   coral: hex("#ef4f3c"),
   coralDark: hex("#b8352a"),
   amber: hex("#f6b445"),
@@ -81,9 +81,9 @@ const C = {
   creamShade: hex("#d9cdbd"),
   screen: hex("#1f2a2e"),
   eye: hex("#5fe3a8"),
-  sun: hex("#fff1cf"),
-  crate: hex("#c89562"),
-  crateDark: hex("#9b6c41"),
+  sun: hex("#ffc779"),
+  crate: hex("#9a6b43"),
+  crateDark: hex("#6e4a2c"),
   green: hex("#5fe3a8"),
 };
 
@@ -104,12 +104,14 @@ function gradient(c: Canvas, x0: number, y0: number, w: number, h: number, stops
 
 /** Arched factory window with mullions and a sunset beyond. */
 function windowPane(c: Canvas, x: number, y: number, w: number, h: number) {
-  gradient(c, x, y, w, h, ["#f4a07c", "#f7c08a", "#fbe2b4", "#fff3dc"], 5);
-  // distant skyline silhouettes of server towers
+  gradient(c, x, y, w, h, ["#171a42", "#33296a", "#7d4379", "#e2684f", "#f3a24a"], 5);
+  // distant skyline of server towers, a few windows still lit
   const r = rng(x * 7 + y);
   for (let i = x; i < x + w; i += 3 + Math.floor(r() * 3)) {
-    const th = 4 + Math.floor(r() * h * 0.35);
-    for (let j = 0; j < th; j++) for (let k = 0; k < 3; k++) c.set(i + k, y + h - 1 - j, hex("#e6a07c"));
+    const th = 4 + Math.floor(r() * h * 0.38);
+    for (let j = 0; j < th; j++) for (let k = 0; k < 3; k++) {
+      c.set(i + k, y + h - 1 - j, j % 3 === 1 && k === 1 && r() < 0.35 ? hex("#ffc779") : hex("#141533"));
+    }
   }
   for (let i = x; i < x + w; i++) {
     c.set(i, y, C.beam);
@@ -122,11 +124,34 @@ function windowPane(c: Canvas, x: number, y: number, w: number, h: number) {
 
 /** Warm light shafts falling from the windows. */
 function lightShafts(c: Canvas, windows: [number, number, number, number][]) {
+  // the dusk outside spills a little coral onto the floor
   for (const [x, y, w, h] of windows) {
     for (let j = y + h; j < c.h; j++) {
       const drift = (j - (y + h)) * 0.55;
       const fade = 1 - (j - (y + h)) / (c.h - y - h);
-      for (let i = 0; i < w; i++) c.tint(x + i + drift, j, C.sun, 0.42 * fade);
+      for (let i = 0; i < w; i++) {
+        const px = Math.round(x + i + drift);
+        if (px >= 0 && px < c.w) c.set(px, j, mix(c.get(px, j), hex("#e2684f"), 0.07 * fade));
+      }
+    }
+  }
+}
+
+/** Pendant lamps hanging from the ceiling, each throwing a warm cone. */
+function lamps(c: Canvas, xs: number[], top: number) {
+  for (const x of xs) {
+    c.rect(x, 0, 1, top, C.steel);
+    c.rect(x - 4, top, 9, 3, C.inkSoft);
+    c.rect(x - 2, top + 3, 5, 1, C.sun);
+    for (let j = top + 4; j < c.h; j++) {
+      const spread = (j - top) * 0.42;
+      const fade = 1 - (j - top) / (c.h - top);
+      for (let i = Math.ceil(-spread); i <= spread; i++) {
+        const px = x + i;
+        if (px < 0 || px >= c.w) continue;
+        const edge = 1 - Math.abs(i) / (spread + 1);
+        c.set(px, j, mix(c.get(px, j), C.sun, 0.13 * fade * Math.min(1, edge * 1.6)));
+      }
     }
   }
 }
@@ -224,22 +249,23 @@ function paintHero(c: Canvas) {
   // server racks between the windows
   [[74, 92, 30, 76], [162, 104, 30, 64], [250, 92, 30, 76]].forEach(([x, y, w, h]) => rack(c, r, x, y, w, h));
   lightShafts(c, wins);
+  lamps(c, [90, 178, 266], 32);
   // the line: conveyor, crates, robots
   conveyor(c, 150);
-  [14, 58, 130, 176, 300].forEach((x) => crate(c, x, 143));
-  crate(c, 218, 143, true); // the one that shouldn't ship
+  [14, 58, 130, 176, 218].forEach((x) => crate(c, x, 143));
+  crate(c, 306, 143, true); // the one that shouldn't ship
   robot(c, 34, 147, { carrying: "crate" });
   robot(c, 96, 147);
   robot(c, 152, 147, { flip: true });
   robot(c, 264, 147, { carrying: "crate", flip: true });
-  robot(c, 318, 147, { eye: C.amber });
+  robot(c, 332, 147, { eye: C.amber });
   // Klaw on its gantry, silhouetted against the window, over the coral crate
-  claw(c, 206, 116, railY, 2);
+  claw(c, 294, 116, railY, 2);
 }
 
 function paintMonitors(c: Canvas) {
   const r = rng(23);
-  gradient(c, 0, 0, c.w, c.h, ["#f2c79b", "#f6dcb8", "#efe1cd"], 5);
+  gradient(c, 0, 0, c.w, c.h, ["#141220", "#1e1a2c", "#2a2236"], 5);
   // a wall of monitors in a console room
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 6; col++) {
@@ -289,11 +315,12 @@ function paintBench(c: Canvas, seed: number, palette: string[], subject: "termin
 }
 
 function paintLine(c: Canvas) {
-  gradient(c, 0, 0, c.w, c.h, ["#f4a07c", "#f7c08a", "#fbe2b4"], 5);
+  gradient(c, 0, 0, c.w, c.h, ["#171a42", "#33296a", "#7d4379", "#e2684f"], 5);
   const r = rng(77);
   for (let i = 0; i < c.w; i += 4 + Math.floor(r() * 4)) {
     const th = 10 + Math.floor(r() * 40);
-    c.rect(i, c.h - 24 - th, 4, th, hex("#d98a6c"));
+    c.rect(i, c.h - 24 - th, 4, th, hex("#141533"));
+    for (let j = c.h - 24 - th + 2; j < c.h - 26; j += 4) if (r() < 0.3) c.set(i + 1, j, hex("#ffc779"));
   }
   c.rect(0, c.h - 24, c.w, 24, C.floorDark);
   conveyor(c, c.h - 30);
@@ -340,11 +367,11 @@ function paint(name: SceneName, c: Canvas) {
     case "claw":
       return paintClawSprite(c);
     case "terminal":
-      return paintBench(c, 3, ["#f2c79b", "#f8e2c2"], "terminal");
+      return paintBench(c, 3, ["#1d1626", "#3a2436"], "terminal");
     case "robots":
-      return paintBench(c, 5, ["#cfe0f2", "#eef3f8"], "robots");
+      return paintBench(c, 5, ["#121a36", "#233160"], "robots");
     case "brain":
-      return paintBench(c, 9, ["#e9d6f2", "#f6eef9"], "brain");
+      return paintBench(c, 9, ["#1e1430", "#3a2452"], "brain");
   }
 }
 
