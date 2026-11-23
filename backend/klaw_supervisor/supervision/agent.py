@@ -670,7 +670,12 @@ async def monitor_session(
     applied = "none"
 
     concerned = assessment in ("drifting", "stuck", "risky") or action != "none"
-    if concerned and _can_investigate("fast"):
+    cooldown = float(config.get("agent_investigate_every_seconds", 180))
+    recently = time.time() - float(_state(execution).get("investigated_at") or 0) < cooldown
+    if concerned and not recently and _can_investigate("fast"):
+        state = _state(execution)
+        state["investigated_at"] = time.time()
+        _save(execution, state)
         # Something looks wrong: investigate with tools, then act on the evidence.
         record = await _investigate_session(
             session, execution, task, prompt, mode, config, capabilities, assessment, reasoning
@@ -1018,11 +1023,11 @@ async def merge_after(session: AsyncSession, execution: Execution, before: dict[
     inbox = list(fresh.get("inbox") or [])
     inbox += [i for i in mine.get("inbox") or [] if json.dumps(i, sort_keys=True) not in old]
     merged["inbox"] = inbox[-5:]
-    for key in ("last_assessment", "monitor_seq", "monitor_at"):
+    for key in ("last_assessment", "monitor_seq", "monitor_at", "investigated_at"):
         if mine.get(key) is not None:
             merged[key] = mine[key]
     handled = {"plans", "investigations", "assessments", "memory", "inbox",
-               "last_assessment", "monitor_seq", "monitor_at"}
+               "last_assessment", "monitor_seq", "monitor_at", "investigated_at"}
     for key, value in mine.items():  # anything else this run changed (checkpoints, reports...)
         if key not in handled and value != before.get(key):
             merged[key] = value

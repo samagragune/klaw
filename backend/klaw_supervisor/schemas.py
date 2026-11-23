@@ -303,6 +303,9 @@ class PolicyConfiguration(BaseModel):
     #: Look at live sessions unprompted and step in (guide, pause, stop).
     agent_monitor: bool = True
     agent_monitor_interval_seconds: int = Field(default=45, ge=15, le=3600)
+    #: A worrying look turns into a tool-using investigation at most this often
+    #: per session (investigations cost several model calls).
+    agent_investigate_every_seconds: int = Field(default=180, ge=30, le=3600)
     #: Longest a tool call waits for the agent before the rules decide alone.
     agent_action_timeout_seconds: float = Field(default=10, ge=1, le=60)
     agent_completion_timeout_seconds: float = Field(default=30, ge=5, le=120)
