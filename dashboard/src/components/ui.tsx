@@ -89,7 +89,7 @@ export function Stat({
   return (
     <div className="glass rise-in px-5 py-4">
       <div className="text-[11px] uppercase tracking-wide text-faint">{label}</div>
-      <div className={cn("mt-1.5 text-[28px] font-extrabold tracking-tight tabular-nums", toneClass)}>
+      <div className={cn("mt-1.5 text-[28px] font-semibold tracking-[-0.02em] tabular-nums", toneClass)}>
         {hosted ? value : <NotHosted compact />}
       </div>
       {hint && hosted ? <div className="mt-0.5 text-xs text-muted">{hint}</div> : null}
@@ -114,12 +114,12 @@ export function Button({
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const variants: Record<ButtonVariant, string> = {
     default:
-      "press border border-white/80 bg-white/60 text-ink shadow-[0_6px_18px_-10px_rgba(26,31,64,0.35)] backdrop-blur-md hover:-translate-y-px hover:bg-white/85",
+      "press border border-white/10 bg-white/[0.05] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-md hover:border-white/20 hover:bg-white/[0.09]",
     primary:
-      "press ripple-light border border-white/30 bg-[image:var(--gradient)] text-white shadow-[0_10px_26px_-10px_rgba(255,90,79,0.7)] hover:-translate-y-px hover:shadow-[0_14px_32px_-12px_rgba(61,91,255,0.6)]",
+      "press ripple-light border border-white/15 bg-[var(--accent)] text-white shadow-[0_8px_24px_-8px_rgba(239,79,60,0.75),inset_0_1px_0_rgba(255,255,255,0.25)] hover:bg-[var(--accent-soft)]",
     danger:
-      "press border border-[rgba(229,57,74,0.25)] bg-[rgba(229,57,74,0.1)] text-[var(--failed)] hover:-translate-y-px hover:bg-[rgba(229,57,74,0.16)]",
-    ghost: "press border border-transparent text-muted hover:bg-white/60 hover:text-ink",
+      "press border border-[rgba(255,93,93,0.3)] bg-[rgba(255,93,93,0.1)] text-[var(--failed)] hover:bg-[rgba(255,93,93,0.18)]",
+    ghost: "press border border-transparent text-muted hover:bg-white/[0.06] hover:text-ink",
   };
   return (
     <button
@@ -144,7 +144,7 @@ export function Input({
   return (
     <input
       className={cn(
-        "w-full rounded-xl border border-white/80 bg-white/70 px-3 py-2 text-sm text-ink shadow-inner outline-none backdrop-blur-md transition focus:border-[var(--electric)] focus:ring-4 focus:ring-[rgba(61,91,255,0.15)]",
+        "w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-ink outline-none transition placeholder:text-faint focus:border-[var(--electric)] focus:ring-4 focus:ring-[rgba(91,108,255,0.18)]",
         "placeholder:text-faint focus:border-[var(--accent)] focus:outline-none",
         className,
       )}
@@ -161,7 +161,7 @@ export function Select({
   return (
     <select
       className={cn(
-        "rounded-xl border border-white/80 bg-white/70 px-2.5 py-2 text-sm text-ink backdrop-blur-md outline-none focus:border-[var(--electric)]",
+        "rounded-lg border border-white/10 bg-[#14141c] px-2.5 py-2 text-sm text-ink outline-none focus:border-[var(--electric)]",
         "focus:border-[var(--accent)] focus:outline-none",
         className,
       )}

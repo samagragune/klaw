@@ -147,7 +147,7 @@ export default function SettingsPage() {
             </div>
 
             {created ? (
-              <div className="border-b border-line bg-[rgba(19,168,106,0.08)] px-4 py-3">
+              <div className="border-b border-line bg-[rgba(52,211,153,0.07)] px-4 py-3">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] uppercase tracking-wide text-[var(--success)]">
                     Copy this now — it cannot be shown again

@@ -1,15 +1,11 @@
 import type { Metadata } from "next";
-import { Barlow_Condensed, Inter, JetBrains_Mono } from "next/font/google";
+import { Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Ripples } from "@/components/ripples";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
-const barlow = Barlow_Condensed({
-  subsets: ["latin"],
-  weight: ["300", "500", "700"],
-  variable: "--font-barlow",
-  display: "swap",
-});
+// Instrument Sans: a grotesk with a technical edge (the dev-tool category runs
+// 79% grotesk); variable weight for light display and firm UI text.
+const inter = Instrument_Sans({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
 
 export const metadata: Metadata = {
@@ -20,7 +16,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${barlow.variable} ${mono.variable}`}>
+    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
       <body className="text-ink antialiased">
         <Ripples />
         {children}

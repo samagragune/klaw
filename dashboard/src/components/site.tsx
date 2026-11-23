@@ -145,9 +145,6 @@ export function Section({
 }) {
   return (
     <section id={id} className={`relative overflow-hidden border-b border-line ${className}`}>
-      <div className="glow glow-accent glow-drift -right-40 top-10 size-[520px]" />
-      <div className="glow glow-accent left-[22%] top-[52%] size-[480px] opacity-60" />
-      <div className="glow glow-white -left-40 bottom-0 size-[420px]" />
       <div className="relative mx-auto max-w-[1280px] px-5 py-20 md:px-8 md:py-28">
         <div className="mb-6 flex items-center gap-3">
           <ClawMark size={18} className="claw-bob text-ink" />
@@ -155,7 +152,7 @@ export function Section({
         </div>
         <h2 className="display text-[36px] sm:text-[44px] md:text-[64px]">
           <span className="display-light block">{light}</span>
-          <span className="display-bold text-gradient block pb-1">{bold}</span>
+          <span className="display-bold block">{bold}</span>
         </h2>
         {intro ? <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-muted">{intro}</p> : null}
         {children ? <div className="mt-14">{children}</div> : null}
@@ -233,7 +230,7 @@ export function SupervisorTerminal() {
       accent: "text-[var(--accent)]",
     })[t ?? "dim"] ?? "";
   return (
-    <div className="ticks glass-strong">
+    <div className="glass overflow-hidden shadow-[0_40px_120px_-40px_rgba(239,79,60,0.35)]">
       <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
         <div className="flex gap-1.5">
           <span className="size-2 rounded-full bg-line-strong" />

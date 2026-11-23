@@ -121,8 +121,8 @@ export function Shell({ children }: { children: ReactNode }) {
                       className={cn(
                         "press flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-all duration-200",
                         active
-                          ? "bg-[image:var(--gradient)] font-medium text-white shadow-[0_8px_22px_-10px_rgba(255,90,79,0.75)]"
-                          : "text-muted hover:translate-x-0.5 hover:bg-white/70 hover:text-ink",
+                          ? "bg-white/[0.07] font-medium text-ink shadow-[inset_2px_0_0_var(--accent),inset_0_1px_0_rgba(255,255,255,0.06)]"
+                          : "text-muted hover:bg-white/[0.04] hover:text-ink",
                       )}
                     >
                       <Icon className="size-4" strokeWidth={1.75} />
@@ -165,8 +165,8 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
 
       <main className="relative min-w-0 flex-1 overflow-x-hidden">
-        <div className="glow glow-accent glow-drift pointer-events-none fixed right-[-8%] top-[-12%] -z-10 size-[620px] opacity-70" />
-        <div className="glow glow-white glow-drift pointer-events-none fixed bottom-[-15%] left-[20%] -z-10 size-[560px] opacity-70" />
+        <div className="glow glow-violet glow-drift pointer-events-none fixed right-[-8%] top-[-14%] -z-10 size-[620px] opacity-60" />
+        <div className="glow glow-accent pointer-events-none fixed bottom-[-20%] left-[25%] -z-10 size-[520px] opacity-30" />
         <BackendStatus />
         {children}
       </main>

@@ -109,21 +109,21 @@ export default function LandingPage() {
   return (
     <>
       {/* HERO */}
-      <section className="grid-bg relative overflow-hidden border-b border-line">
-        <div className="glow glow-accent glow-drift right-[8%] top-[18%] size-[560px]" />
-        <div className="glow glow-white -left-32 top-1/3 size-[460px]" />
-        <div className="relative mx-auto grid max-w-[1280px] items-center gap-14 px-5 py-20 md:px-8 lg:grid-cols-[1.05fr_1fr] lg:py-28">
-          <div>
-            <div className="bracket mb-7">The supervisor for AI agents</div>
-            <h1 className="display text-[44px] sm:text-[76px] lg:text-[88px]">
-              <span className="display-bold block">Your agents work.</span>
-              <span className="display-bold text-gradient block pb-2">You stay in charge.</span>
+      <section className="relative overflow-hidden border-b border-line">
+        <div className="grid-bg pointer-events-none absolute inset-0" />
+        <div className="relative mx-auto max-w-[1180px] px-5 pb-20 pt-16 text-center md:px-8 md:pt-24">
+          <div className="flex flex-col items-center">
+            <div className="bracket mb-8">An agent that supervises your agents</div>
+            <h1 className="display text-[44px] sm:text-[68px] lg:text-[80px]">
+              <span className="block">Your agents work.</span>
+              <span className="text-coral block">You stay in charge.</span>
             </h1>
-            <p className="mt-7 max-w-xl text-[18px] leading-relaxed text-muted">
-              Run a supervisor on your own machine, connect Claude Code and OpenAI Agents SDK
-              agents in one command, and watch, approve and stop their work from one dashboard.
+            <p className="mx-auto mt-7 max-w-2xl text-[18px] leading-relaxed text-muted">
+              Klaw runs on your machine beside Claude Code and OpenAI Agents SDK apps. It plans each
+              task, checks every action, verifies every &ldquo;done&rdquo; against the real diff, and stops
+              what shouldn&apos;t run.
             </p>
-            <div className="mt-9 flex flex-wrap gap-3">
+            <div className="mt-9 flex flex-wrap justify-center gap-3">
               <Link href="/login?mode=signup" className="btn btn-accent">
                 Get started
               </Link>
@@ -131,15 +131,16 @@ export default function LandingPage() {
                 Read the quickstart
               </Link>
             </div>
-            <div className="label-mono mt-8 flex flex-wrap gap-x-6 gap-y-2 text-faint">
+            <div className="label-mono mt-7 flex flex-wrap justify-center gap-x-6 gap-y-2 text-faint">
               <span>runs locally</span>
               <span>open source</span>
-              <span>no model key required</span>
+              <span>any model, or none</span>
             </div>
           </div>
-          <div className="relative">
-            <div className="absolute -top-[150px] right-6 hidden lg:block">
-              <ClawMachine width={64} />
+          <div className="relative mx-auto mt-16 max-w-[920px] text-left">
+            <div className="pointer-events-none absolute -inset-x-24 -top-16 bottom-0 -z-10 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(239,79,60,0.22),rgba(91,108,255,0.14)_45%,transparent_70%)] blur-2xl" />
+            <div className="absolute -top-[118px] right-10 hidden lg:block">
+              <ClawMachine width={56} />
             </div>
             <SupervisorTerminal />
           </div>
@@ -155,7 +156,7 @@ export default function LandingPage() {
             ["Python agents", "SDK checkpoints"],
             ["Your platform", "open event protocol"],
           ].map(([name, how]) => (
-            <div key={name} className="border-r border-line px-5 py-7 transition-colors last:border-r-0 hover:bg-white/50 md:px-8">
+            <div key={name} className="border-r border-line px-5 py-7 transition-colors last:border-r-0 hover:bg-white/[0.03] md:px-8">
               <div className="display display-bold text-[22px]">{name}</div>
               <div className="label-mono mt-1 text-faint">{how}</div>
             </div>

@@ -1,48 +1,48 @@
 @import "tailwindcss";
 
 /*
- * Klaw design system - glass.
- * Frosted white panels floating over a slow coral / electric-blue light field
- * on a pearl-white base. Rounded, airy, with depth from blur and soft
- * shadow rather than lines. Coral is the action colour, electric blue the
- * signal colour, and the gradient between them marks what matters most.
+ * Klaw design system - dark glass.
+ *
+ * Studied from real dark developer-tool sites (Inspo: Sourcegraph, Superlist,
+ * hiartem). A warm charcoal canvas; one light source bleeding up behind the
+ * hero (indigo -> violet -> coral); translucent panels with a hairline edge and
+ * a lit top rim. Coral is the only action colour; electric blue is signal
+ * (focus, links, running). Instrument Sans for type, JetBrains Mono for data.
  */
 
 :root {
-  --bg: #f4f5fb;
-  --panel: rgba(255, 255, 255, 0.58);
-  --panel-raised: rgba(255, 255, 255, 0.78);
-  --border: rgba(255, 255, 255, 0.75);
-  --border-strong: rgba(26, 31, 64, 0.14);
-  --text: #12152b;
-  --text-muted: #4a5070;
-  --text-faint: #8389a6;
-  --accent: #ff5a4f;          /* coral */
-  --accent-soft: #ff7d70;
+  --bg: #0b0b10;
+  --panel: rgba(255, 255, 255, 0.035);
+  --panel-raised: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #f2f1f4;
+  --text-muted: #a5a3ad;
+  --text-faint: #6c6a75;
+  --accent: #ef4f3c;           /* coral (Sourcegraph oklch 71% .19 27) */
+  --accent-soft: #ff6b58;
   --accent-ink: #ffffff;
-  --electric: #3d5bff;        /* electric blue */
-  --electric-soft: #6f86ff;
-  --violet: #8b5cff;
-  --gradient: linear-gradient(120deg, #ff5a4f 0%, #ff4f8b 45%, #3d5bff 100%);
-  --code-bg: #121633;
+  --electric: #5b6cff;         /* electric blue (oklch 57% .2 265) */
+  --electric-soft: #8b97ff;
+  --violet: #8a6cff;
+  --code-bg: #0f0f17;
 
-  /* Status + series colours, tuned for a light canvas. */
-  --success: #13a86a;
-  --running: #3d5bff;
-  --failed: #e5394a;
-  --serious: #ff7a45;
-  --warning: #d98a00;
-  --cancelled: #8b5cff;
-  --paused: #d98a00;
-  --idle: #8389a6;
-  --critical: #e5394a;
+  --success: #34d399;
+  --running: #6f7dff;
+  --failed: #ff5d5d;
+  --serious: #ff8a5c;
+  --warning: #f6b445;
+  --cancelled: #a78bfa;
+  --paused: #f6b445;
+  --idle: #6c6a75;
+  --critical: #ff5d5d;
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-panel: var(--panel);
   --color-panel-raised: var(--panel-raised);
-  --color-line: var(--border-strong);
+  --color-line: var(--border);
   --color-line-strong: var(--border-strong);
   --color-ink: var(--text);
   --color-muted: var(--text-muted);
@@ -63,14 +63,14 @@
   --font-display: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --radius-xs: 6px;
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 22px;
-  --radius-2xl: 28px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
 }
 
 * {
-  border-color: rgba(26, 31, 64, 0.1);
+  border-color: var(--border);
 }
 
 html,
@@ -80,17 +80,16 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* The light field everything floats on: fixed, slowly drifting. */
+/* One light source: a bleed from above, fixed behind everything. */
 body {
   font-family: var(--font-sans);
-  font-size: 14px;
-  letter-spacing: -0.01em;
+  font-size: 14.5px;
+  letter-spacing: -0.005em;
   min-height: 100vh;
   background:
-    radial-gradient(42vw 42vw at 8% 12%, rgba(255, 90, 79, 0.32), transparent 60%),
-    radial-gradient(46vw 46vw at 92% 8%, rgba(61, 91, 255, 0.3), transparent 60%),
-    radial-gradient(40vw 40vw at 78% 92%, rgba(139, 92, 255, 0.22), transparent 60%),
-    radial-gradient(36vw 36vw at 18% 88%, rgba(255, 79, 139, 0.18), transparent 60%),
+    radial-gradient(70vw 48vw at 50% -12%, rgba(91, 108, 255, 0.22), transparent 62%),
+    radial-gradient(44vw 30vw at 78% 6%, rgba(138, 108, 255, 0.16), transparent 60%),
+    radial-gradient(40vw 28vw at 22% 10%, rgba(239, 79, 60, 0.14), transparent 60%),
     var(--bg);
   background-attachment: fixed;
 }
@@ -108,7 +107,7 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(26, 31, 64, 0.18);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
@@ -116,50 +115,50 @@ body {
 
 /* ------------------------------------------------------------------ type */
 
+/* Large, light, tightly tracked (Sourcegraph ratio: 80 / 34). */
 .display {
   font-family: var(--font-display);
-  font-weight: 800;
-  line-height: 1.02;
-  letter-spacing: -0.035em;
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: -0.032em;
 }
 .display-light {
-  font-weight: 500;
+  font-weight: 400;
   color: var(--text-muted);
 }
 .display-bold {
-  font-weight: 800;
+  font-weight: 600;
 }
-/* Gradient ink for the words that matter. */
-.text-gradient {
-  background: var(--gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+/* The one coloured line in a two-tone heading (Superlist's signature). */
+.text-gradient,
+.text-coral {
+  color: var(--accent);
 }
 
-/* Section label: a small frosted pill. */
+/* Section label: a small glass chip with a coral dot. */
 .bracket {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--electric);
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 999px;
-  padding: 0.3rem 0.75rem;
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  padding: 0.32rem 0.8rem;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 .bracket::before {
   content: "";
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: var(--gradient);
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
 }
 
 .label-mono {
@@ -180,55 +179,57 @@ button.btn {
   justify-content: center;
   gap: 0.5rem;
   height: 44px;
-  padding: 0 1.25rem;
+  padding: 0 1.3rem;
   font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 650;
+  font-size: 14.5px;
+  font-weight: 550;
   letter-spacing: -0.005em;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 6px 20px -10px rgba(26, 31, 64, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.4), box-shadow 0.2s, background-color 0.2s, filter 0.2s;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.4), background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
   white-space: nowrap;
   cursor: pointer;
 }
 .btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 28px -12px rgba(61, 91, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 .btn:active,
 .press:active {
-  transform: translateY(0) scale(0.95);
+  transform: scale(0.95);
   transition-duration: 0.08s;
 }
 .btn-accent {
-  background: var(--gradient);
-  background-size: 160% 100%;
-  background-position: 0% 0%;
-  border-color: rgba(255, 255, 255, 0.35);
+  background: var(--accent);
+  border-color: rgba(255, 255, 255, 0.16);
   color: #fff;
-  box-shadow: 0 10px 30px -10px rgba(255, 90, 79, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.4), box-shadow 0.2s, background-position 0.5s ease;
+  box-shadow: 0 8px 28px -8px rgba(239, 79, 60, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 .btn-accent:hover {
-  background-position: 100% 0%;
-  box-shadow: 0 16px 36px -12px rgba(61, 91, 255, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  background: var(--accent-soft);
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: 0 12px 36px -8px rgba(239, 79, 60, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.32);
 }
 .btn-ghost {
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.03);
 }
 .btn-light {
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--text);
+  background: var(--text);
+  border-color: var(--text);
+  color: #0b0b10;
+}
+.btn-light:hover {
+  background: #ffffff;
 }
 .btn-sm {
   height: 34px;
   padding: 0 0.95rem;
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 /* Click ripple (added by <Ripples />). */
@@ -237,11 +238,11 @@ button.btn {
   border-radius: 999px;
   pointer-events: none;
   transform: translate(-50%, -50%) scale(0);
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 70%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 70%);
   animation: ripple 0.6s ease-out forwards;
 }
 .ripple-dark {
-  background: radial-gradient(circle, rgba(61, 91, 255, 0.35), rgba(255, 90, 79, 0) 70%);
+  background: radial-gradient(circle, rgba(239, 79, 60, 0.35), rgba(91, 108, 255, 0.12) 45%, rgba(0, 0, 0, 0) 70%);
 }
 @keyframes ripple {
   to {
@@ -254,39 +255,19 @@ button.btn {
 
 .grid-bg {
   background-image:
-    linear-gradient(to right, rgba(61, 91, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(61, 91, 255, 0.06) 1px, transparent 1px);
-  background-size: 48px 48px;
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%);
 }
 .dots-bg {
-  background-image: radial-gradient(rgba(61, 91, 255, 0.14) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
   background-size: 18px 18px;
 }
 
-/* Corner accents on a framed panel. */
 .ticks {
   position: relative;
-}
-.ticks::before,
-.ticks::after {
-  content: "";
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  pointer-events: none;
-  border-radius: 4px;
-}
-.ticks::before {
-  top: -1px;
-  left: -1px;
-  border-top: 2px solid var(--accent);
-  border-left: 2px solid var(--accent);
-}
-.ticks::after {
-  bottom: -1px;
-  right: -1px;
-  border-bottom: 2px solid var(--electric);
-  border-right: 2px solid var(--electric);
 }
 
 .terminal {
@@ -295,13 +276,11 @@ button.btn {
   line-height: 1.75;
 }
 
-/* Code and terminal blocks: dark electric glass, readable on the light field. */
 .code-glass {
-  background: linear-gradient(160deg, rgba(30, 36, 84, 0.92), rgba(16, 19, 46, 0.94));
-  color: #e8ebff;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 14px;
-  box-shadow: 0 18px 40px -20px rgba(18, 22, 51, 0.6);
+  background: rgba(5, 5, 10, 0.55);
+  color: #d9dbe8;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
 }
 
 /* ------------------------------------------------------------- motion */
@@ -336,7 +315,7 @@ button.btn {
 @keyframes rise-in {
   from {
     opacity: 0;
-    transform: translateY(14px) scale(0.99);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -370,59 +349,54 @@ button.btn {
 
 /* ------------------------------------------------------------- glass */
 
+/* Translucent panel: hairline edge, lit top rim, soft depth. */
 .glass {
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.42));
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    0 24px 60px -30px rgba(26, 31, 64, 0.38),
-    0 2px 6px -2px rgba(26, 31, 64, 0.08);
-  -webkit-backdrop-filter: blur(22px) saturate(170%);
-  backdrop-filter: blur(22px) saturate(170%);
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 24px 48px -28px rgba(0, 0, 0, 0.8);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
 }
 .glass-strong {
-  background: linear-gradient(170deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6));
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), 0 20px 50px -30px rgba(26, 31, 64, 0.35);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  backdrop-filter: blur(28px) saturate(180%);
+  background: rgba(14, 14, 20, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
 }
 .glass-hover {
-  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s, border-color 0.25s;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s, background-color 0.25s;
 }
 .glass-hover:hover {
-  transform: translateY(-3px);
-  border-color: rgba(255, 255, 255, 1);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 30px 70px -30px rgba(61, 91, 255, 0.45),
-    0 0 0 1px rgba(255, 90, 79, 0.18);
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025));
 }
 
-/* Coloured light behind the glass. */
 .glow {
   position: absolute;
   border-radius: 9999px;
   pointer-events: none;
-  filter: blur(70px);
-  opacity: 0.9;
+  filter: blur(80px);
 }
 .glow-accent {
-  background: radial-gradient(circle, rgba(255, 90, 79, 0.55), rgba(255, 90, 79, 0) 68%);
+  background: radial-gradient(circle, rgba(239, 79, 60, 0.35), rgba(239, 79, 60, 0) 68%);
 }
 .glow-white {
-  background: radial-gradient(circle, rgba(61, 91, 255, 0.45), rgba(61, 91, 255, 0) 70%);
+  background: radial-gradient(circle, rgba(91, 108, 255, 0.3), rgba(91, 108, 255, 0) 70%);
 }
 .glow-violet {
-  background: radial-gradient(circle, rgba(139, 92, 255, 0.4), rgba(139, 92, 255, 0) 70%);
+  background: radial-gradient(circle, rgba(138, 108, 255, 0.3), rgba(138, 108, 255, 0) 70%);
 }
 @keyframes drift {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(40px, -30px) scale(1.08); }
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(30px, -20px); }
 }
 .glow-drift {
-  animation: drift 16s ease-in-out infinite;
+  animation: drift 18s ease-in-out infinite;
 }
 
 /* ------------------------------------------------------------- pixel claw */
