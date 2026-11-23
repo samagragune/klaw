@@ -1,388 +1,281 @@
+"use client";
+
 import Link from "next/link";
-import {
-  Activity,
-  BadgeCheck,
-  Ban,
-  Gauge,
-  Hand,
-  Repeat2,
-  ShieldAlert,
-  TimerOff,
-} from "lucide-react";
-import { CopyCode, Section, SupervisorTerminal } from "@/components/site";
-import { ClawMachine } from "@/components/claw";
-import { INSTALL_COMPANION, INSTALL_SUPERVISOR, START_SUPERVISOR } from "@/lib/site-constants";
+import { useEffect, useState, type ReactNode } from "react";
 
-const CAPABILITIES = [
+import { PixelScene, type SceneName } from "@/components/pixel-scene";
+
+/* ------------------------------------------------------------------ hero */
+
+function LocalClock() {
+  const [now, setNow] = useState<string | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="absolute right-5 top-6 z-10 hidden items-center gap-2 text-[13px] font-medium text-ink/80 md:flex">
+      <span className="size-1.5 rounded-full bg-[var(--success)]" />
+      <span>{now ?? "--:--"}</span>
+      <span className="text-ink/50">127.0.0.1</span>
+    </div>
+  );
+}
+
+function Hero() {
+  return (
+    <section className="relative h-[100svh] min-h-[640px] overflow-hidden">
+      <PixelScene name="hero" position="50% 70%" />
+      <LocalClock />
+      <h1 className="display absolute inset-x-0 top-[104px] z-10 mx-auto max-w-[620px] px-5 text-center text-[30px] leading-[1.25] text-ink md:text-[34px]">
+        Klaw, the supervisor
+        <br />
+        for your AI agents
+      </h1>
+      <div className="glass-photo absolute bottom-4 left-4 z-10 w-[min(520px,calc(100%-2rem))] rounded-[22px] p-7 md:bottom-6 md:left-6 md:p-8">
+        <h2 className="display text-[34px] leading-[1.1] md:text-[40px]">An agent that keeps your agents honest</h2>
+        <p className="mt-5 text-[15.5px] leading-relaxed text-white/90">
+          Klaw runs on your machine beside Claude Code and OpenAI Agents SDK apps. It plans each task, checks every
+          action, and verifies every &ldquo;done&rdquo; against the real diff and your tests.
+        </p>
+        <Link href="/docs/agent" className="arrow mt-6 text-white">
+          Get to know Klaw
+        </Link>
+      </div>
+      <p className="absolute bottom-7 right-7 z-10 hidden max-w-[260px] text-right text-[13.5px] font-medium leading-snug text-white drop-shadow md:block">
+        Agents do the work.
+        <br />
+        Klaw makes sure it&apos;s right.
+      </p>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------- diagrams */
+
+const stroke = "rgba(28,27,25,0.55)";
+const faint = "rgba(28,27,25,0.22)";
+
+function PlanDiagram() {
+  return (
+    <svg viewBox="0 0 320 200" className="h-full w-full">
+      {[0, 1, 2, 3].map((i) => (
+        <g key={i} className="float-y" style={{ animationDelay: `${i * 0.4}s` }}>
+          <rect x="70" y={36 + i * 34} width="18" height="18" rx="3" fill="none" stroke={stroke} />
+          {i < 2 ? <path d={`M74 ${45 + i * 34} l4 4 l7 -8`} fill="none" stroke="#ef4f3c" strokeWidth="1.6" /> : null}
+          <rect x="100" y={42 + i * 34} width={[130, 96, 150, 80][i]} height="6" rx="3" fill={faint} />
+        </g>
+      ))}
+      <rect x="252" y="150" width="16" height="16" transform="rotate(45 260 158)" fill="none" stroke={stroke} />
+      <line x1="40" y1="182" x2="290" y2="182" stroke={faint} strokeDasharray="3 4" />
+    </svg>
+  );
+}
+
+function CheckDiagram() {
+  return (
+    <svg viewBox="0 0 320 200" className="h-full w-full">
+      <line x1="160" y1="30" x2="160" y2="170" stroke={stroke} />
+      <line x1="168" y1="30" x2="168" y2="170" stroke={stroke} />
+      {[40, 80, 200, 240].map((x, i) => (
+        <rect key={x} x={x} y="90" width="22" height="22" rx="3" fill="none" stroke={stroke} className="float-y" style={{ animationDelay: `${i * 0.3}s` }} />
+      ))}
+      <g className="float-y" style={{ animationDelay: "0.6s" }}>
+        <rect x="124" y="90" width="22" height="22" rx="3" fill="none" stroke="#ef4f3c" strokeWidth="1.4" />
+        <path d="M130 96 l10 10 M140 96 l-10 10" stroke="#ef4f3c" strokeWidth="1.4" />
+      </g>
+      <line x1="20" y1="124" x2="300" y2="124" stroke={faint} strokeDasharray="3 4" />
+    </svg>
+  );
+}
+
+function VerifyDiagram() {
+  return (
+    <svg viewBox="0 0 320 200" className="h-full w-full">
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <rect key={i} x="40" y={40 + i * 20} width={[120, 90, 140, 70, 110, 96][i]} height="6" rx="3"
+          fill={i === 2 ? "rgba(217,59,59,0.45)" : i === 3 ? "rgba(31,157,87,0.5)" : faint} />
+      ))}
+      <path d="M220 140 A 46 46 0 0 1 300 140" fill="none" stroke={faint} strokeWidth="8" />
+      <path d="M262 99 A 46 46 0 0 1 300 140" fill="none" stroke="#ef4f3c" strokeWidth="8" />
+      <line x1="260" y1="140" x2="286" y2="112" stroke={stroke} strokeWidth="2" className="float-y" />
+      <circle cx="260" cy="140" r="4" fill={stroke} />
+    </svg>
+  );
+}
+
+function ActDiagram() {
+  const dots = [[-60, -30], [40, -50], [70, 20], [-30, 50], [10, -10], [-80, 30]];
+  return (
+    <svg viewBox="0 0 320 200" className="h-full w-full">
+      <g transform="translate(160 100)">
+        {[30, 60, 90].map((r) => (
+          <circle key={r} r={r} fill="none" stroke={faint} />
+        ))}
+        <g className="orbit" style={{ transformOrigin: "0 0" }}>
+          <line x1="0" y1="0" x2="90" y2="0" stroke={stroke} />
+        </g>
+        {dots.map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r="4" fill={i === 2 ? "#ef4f3c" : "none"} stroke={i === 2 ? "#ef4f3c" : stroke} />
+        ))}
+        <rect x="-6" y="-6" width="12" height="12" rx="2" fill="none" stroke={stroke} />
+      </g>
+    </svg>
+  );
+}
+
+const FEATURES: { label: string; body: ReactNode; diagram: ReactNode }[] = [
   {
-    icon: Repeat2,
-    title: "Loops that go nowhere",
-    body: "The same call returning the same result, or failing the same way, is stopped with feedback the agent reads — so it changes course instead of burning another hour.",
+    label: "Plans every task",
+    body: (
+      <>
+        <p>When a task starts, Klaw reads the request and the project and writes down what &ldquo;done&rdquo; means, how to verify it, and the risks.</p>
+        <p className="mt-3">Then it takes a git checkpoint you can undo to.</p>
+      </>
+    ),
+    diagram: <PlanDiagram />,
   },
   {
-    icon: ShieldAlert,
-    title: "Risky operations",
-    body: "Recursive deletes, force-pushes, hard resets, dropped tables, piping the internet into a shell, credential files, deploys — held for a human or refused, by your policy.",
+    label: "Checks every action",
+    body: (
+      <>
+        <p>Before each tool call it allows, guides, blocks, asks you, or stops the session, with its reasoning.</p>
+        <p className="mt-3">Your rules, written in plain words, apply to every call. A live key in a command never gets through.</p>
+      </>
+    ),
+    diagram: <CheckDiagram />,
   },
   {
-    icon: Hand,
-    title: "Human approval, remotely",
-    body: "An agent asks; you answer from the dashboard on any device. It waits at the exact call, with a countdown and a safe default if nobody answers.",
+    label: "Verifies every “done”",
+    body: (
+      <>
+        <p>It reads the real diff and runs your tests, then answers Pass, Incomplete, or Needs another attempt.</p>
+        <p className="mt-3">Anything but Pass goes back to the agent with exact instructions.</p>
+      </>
+    ),
+    diagram: <VerifyDiagram />,
   },
   {
-    icon: BadgeCheck,
-    title: "Answers that miss the task",
-    body: "Optional output review checks finished work against the request and whether the claims are backed by tool results — and can send the agent back once with the gaps.",
-  },
-  {
-    icon: TimerOff,
-    title: "Stalls and runaway budgets",
-    body: "Tasks that go quiet, run too long, call too many tools, or spend too many tokens raise an issue with the evidence attached.",
-  },
-  {
-    icon: Gauge,
-    title: "A reliability score you can explain",
-    body: "Every agent gets a score from a published formula over its own history — task success, incident-free runs, tool success. No black box.",
+    label: "Acts on its own",
+    body: (
+      <>
+        <p>It watches live sessions, investigates the ones that look stuck, drifting or risky, and guides or stops them.</p>
+        <p className="mt-3">You hear about it when a human is actually needed.</p>
+      </>
+    ),
+    diagram: <ActDiagram />,
   },
 ];
 
-const MATRIX: Array<[string, string, string]> = [
-  ["See every prompt, tool call, sub-agent and answer", "yes", "yes"],
-  ["Model calls and token usage", "yes", "yes"],
-  ["Block a tool call, with a reason the agent sees", "yes", "yes"],
-  ["Hold a call for human approval", "yes", "yes"],
-  ["Answer the platform's own permission prompts", "yes", "—"],
-  ["Send unfinished work back with what's missing", "yes", "yes"],
-  ["Stop", "yes", "yes"],
-  ["Pause and resume", "no", "yes"],
-];
+/* ------------------------------------------------------------------- page */
 
-const USE_CASES = [
-  {
-    tag: "Coding agents",
-    title: "Claude Code on your laptop, and on your team's",
-    body: "See what every session ran, approve the destructive command it wants to run while you're away from the terminal, and stop one that's stuck retrying.",
-  },
-  {
-    tag: "Agents with real side effects",
-    title: "Refunds, emails, account changes",
-    body: "Put the irreversible tool behind an approval. The agent keeps working on everything else; the money only moves when a person says yes.",
-  },
-  {
-    tag: "Headless and scheduled runs",
-    title: "Agents nobody is watching",
-    body: "Headless sessions deny every permission prompt. Route those prompts to the dashboard instead, and get told when a run stalls or loops.",
-  },
-  {
-    tag: "Evaluating agents",
-    title: "Before you trust one with more",
-    body: "Compare agents by reliability score, read every decision the supervisor made about them, and see exactly where they went wrong.",
-  },
-];
-
-const PERSONAS = [
-  ["Developers using Claude Code", "One command connects a project. Your sessions, tool calls and costs show up on a dashboard you can open from your phone."],
-  ["Teams shipping agent products", "Wrap an OpenAI Agents SDK app in one line and get approvals, a kill switch and an audit trail without building them."],
-  ["Platform and security owners", "A single policy for what agents may do, enforced at the point of action, with a record of every decision and why."],
-  ["Anyone running agents unattended", "Know when an agent is looping, stalled or about to do something you'd want to see first — and be able to stop it."],
-];
-
-const FAQ = [
-  ["Where does my data go?", "To the supervisor you run — on your machine, in one SQLite file. This website is a static app in your browser that talks to that supervisor directly; there is no shared backend in between."],
-  ["Does it slow my agent down?", "Observation is asynchronous. Decision points — a tool about to run — wait for one local request, typically a few milliseconds. If the supervisor is unreachable, adapters fail open and queue their events."],
-  ["Do I need an API key for a model?", "No. Loop, risk, budget and stall detection, approvals and stopping are all deterministic. A Gemini key only adds optional output review and the 'ask the supervisor' chat."],
-  ["Can it pause Claude Code?", "No — Claude Code's hooks can block, hold for approval, send feedback or stop, but nothing can suspend a turn mid-way. The dashboard says so instead of pretending."],
-  ["Which agents are supported?", "Claude Code (through its lifecycle hooks), applications built on the OpenAI Agents SDK, and any Python agent through the SDK. Others can speak the open event protocol."],
-  ["Is it free?", "Yes. The supervisor and adapters are open source and run on your own hardware; the dashboard is free to use."],
-];
-
-const AGENT_FEATURES: { step: string; title: string; body: string }[] = [
-  { step: "01", title: "Plans every task", body: "Reads the request and the project, writes down what done means and how to check it, and takes a checkpoint you can undo to." },
-  { step: "02", title: "Checks every action", body: "Allows, guides, blocks, asks you, or stops - with its reasoning. Your rules in plain words, secrets in commands, and risky operations are enforced on every call." },
-  { step: "03", title: "Verifies every 'done'", body: "Reads the real diff, runs your tests, and returns Pass, Incomplete or Needs another attempt. Anything but Pass goes back to the agent with exact instructions." },
-  { step: "04", title: "Acts on its own", body: "Watches live sessions, investigates the ones that look stuck, drifting or risky, and guides or stops them without waiting for you." },
-  { step: "05", title: "Reviews and reports", body: "Code review of what changed with file-and-line findings, a handover report when a session ends, and a daily digest across every agent." },
-  { step: "06", title: "Learns and remembers", body: "Your approvals, denials and preferences become project memory it uses next time. Two agents in one project are warned before they collide." },
+const DOCS: { scene: SceneName; tag: string; title: string; href: string }[] = [
+  { scene: "terminal", tag: "$ klaw-supervisor start", title: "Start a supervisor in one command", href: "/docs/quickstart" },
+  { scene: "robots", tag: "plan · check · verify · act", title: "How the Klaw agent works", href: "/docs/agent" },
+  { scene: "brain", tag: "gemini · claude · ollama", title: "Bring any model as the brain", href: "/docs/brain" },
 ];
 
 export default function LandingPage() {
   return (
     <>
-      {/* HERO */}
-      <section className="relative overflow-hidden border-b border-line">
-        <div className="grid-bg pointer-events-none absolute inset-0" />
-        <div className="relative mx-auto max-w-[1180px] px-5 pb-20 pt-16 text-center md:px-8 md:pt-24">
-          <div className="flex flex-col items-center">
-            <div className="bracket mb-8">An agent that supervises your agents</div>
-            <h1 className="display text-[44px] sm:text-[68px] lg:text-[80px]">
-              <span className="block">Your agents work.</span>
-              <span className="text-coral block">You stay in charge.</span>
-            </h1>
-            <p className="mx-auto mt-7 max-w-2xl text-[18px] leading-relaxed text-muted">
-              Klaw runs on your machine beside Claude Code and OpenAI Agents SDK apps. It plans each
-              task, checks every action, verifies every &ldquo;done&rdquo; against the real diff, and stops
-              what shouldn&apos;t run.
+      <Hero />
+
+      {/* the problem, quietly */}
+      <section className="mx-auto grid max-w-[1100px] items-center gap-10 px-5 py-[120px] md:grid-cols-[280px_1fr] md:px-8">
+        <div className="mx-auto h-[220px] w-[190px]">
+          <PixelScene name="robot" fit="contain" />
+        </div>
+        <p className="display text-[30px] leading-[1.25] md:text-[38px]">
+          Putting an AI agent to work on your code is as easy as typing a prompt. Knowing what it actually did{" "}
+          <span className="quiet">is not.</span>
+        </p>
+      </section>
+
+      <section id="how" className="mx-auto max-w-[1100px] px-5 pb-[60px] md:px-8">
+        <p className="display max-w-[760px] text-[32px] leading-[1.22] md:text-[42px]">
+          Coding agents have shown real skill at <span className="quiet">refactors</span>,{" "}
+          <span className="quiet">migrations</span> and <span className="quiet">bug fixes</span>, but they mark their own
+          homework.
+        </p>
+        <p className="display mt-8 text-[32px] md:text-[42px]">They need a supervisor.</p>
+      </section>
+
+      {/* four things it does */}
+      <section className="mx-auto max-w-[1100px] space-y-[96px] px-5 py-[96px] md:px-8">
+        {FEATURES.map((f) => (
+          <div key={f.label} className="grid items-center gap-10 md:grid-cols-[300px_1fr]">
+            <div>
+              <div className="bracket">{f.label}</div>
+              <div className="mt-4 text-[14.5px] leading-relaxed text-muted">{f.body}</div>
+            </div>
+            <div className="glass p-3">
+              <div className="well h-[300px] p-6">{f.diagram}</div>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      {/* the product, in its room */}
+      <section className="mx-auto max-w-[1240px] px-3 py-10 md:px-6">
+        <div className="relative h-[620px] overflow-hidden rounded-[26px]">
+          <PixelScene name="monitors" />
+          <div className="glass-float absolute right-5 top-5 w-[min(360px,calc(100%-2.5rem))] rounded-[14px] p-4 text-[13px] leading-snug">
+            <div className="flex items-center justify-between font-semibold">
+              <span>Klaw &middot; claude_code</span>
+              <span className="font-normal text-ink/50">now</span>
+            </div>
+            <p className="mt-1 text-ink/80">Blocked: the command would expose a Stripe live key. Decided in 0.3 s.</p>
+          </div>
+          <div className="glass-photo absolute bottom-5 left-5 w-[min(560px,calc(100%-2.5rem))] rounded-[22px] p-8">
+            <h2 className="display text-[34px] leading-[1.12] md:text-[42px]">Supervise your agents in plain language</h2>
+            <p className="mt-4 text-[15px] leading-relaxed text-white/90">
+              Ask it what an agent touched, tell it to stop one, or give it a rule it will enforce from now on.
             </p>
-            <div className="mt-9 flex flex-wrap justify-center gap-3">
-              <Link href="/login?mode=signup" className="btn btn-accent">
-                Get started
-              </Link>
-              <Link href="/docs/quickstart" className="btn btn-ghost">
-                Read the quickstart
-              </Link>
-            </div>
-            <div className="label-mono mt-7 flex flex-wrap justify-center gap-x-6 gap-y-2 text-faint">
-              <span>runs locally</span>
-              <span>open source</span>
-              <span>any model, or none</span>
-            </div>
-          </div>
-          <div className="relative mx-auto mt-16 max-w-[920px] text-left">
-            <div className="pointer-events-none absolute -inset-x-24 -top-16 bottom-0 -z-10 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(239,79,60,0.22),rgba(91,108,255,0.14)_45%,transparent_70%)] blur-2xl" />
-            <div className="absolute -top-[118px] right-10 hidden lg:block">
-              <ClawMachine width={56} />
-            </div>
-            <SupervisorTerminal />
+            <Link href="/login?mode=signup" className="btn mt-6 border-white/40 bg-white/90 text-ink hover:bg-white">
+              Open the console
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* STRIP */}
-      <section className="border-b border-line">
-        <div className="mx-auto grid max-w-[1280px] grid-cols-2 md:grid-cols-4">
-          {[
-            ["Claude Code", "lifecycle hooks"],
-            ["OpenAI Agents SDK", "run hooks + guardrails"],
-            ["Python agents", "SDK checkpoints"],
-            ["Your platform", "open event protocol"],
-          ].map(([name, how]) => (
-            <div key={name} className="border-r border-line px-5 py-7 transition-colors last:border-r-0 hover:bg-white/[0.03] md:px-8">
-              <div className="display display-bold text-[22px]">{name}</div>
-              <div className="label-mono mt-1 text-faint">{how}</div>
-            </div>
+      {/* from the docs */}
+      <section className="mx-auto max-w-[1100px] px-5 py-[96px] md:px-8">
+        <h2 className="display text-[34px] md:text-[44px]">How it fits into your work</h2>
+        <Link href="/docs" className="arrow mt-3 text-[14px] text-muted">
+          Read the docs
+        </Link>
+        <div className="mt-10 grid gap-5 md:grid-cols-3">
+          {DOCS.map((d) => (
+            <Link key={d.title} href={d.href} className="group block text-center">
+              <div className="glass glass-hover relative h-[210px] overflow-hidden p-0">
+                <PixelScene name={d.scene} />
+                <span className="label-mono absolute inset-x-0 top-5 text-center text-[11.5px] text-ink/70">{d.tag}</span>
+              </div>
+              <p className="mt-4 text-[15px] font-medium">{d.title}</p>
+              <p className="mt-1 text-[13px] text-muted group-hover:text-ink">Read in the docs</p>
+            </Link>
           ))}
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
-      <Section
-        id="how"
-        label="How it works"
-        light="Three steps."
-        bold="Nothing to host."
-        intro="The supervisor is a small program you run yourself. Agents report to it; this website is the window onto it. Your data never passes through anyone else."
-      >
-        <div className="grid gap-3 lg:grid-cols-3">
-          {[
-            {
-              n: "01",
-              title: "Run the supervisor",
-              body: "Python 3.11+. It creates its own database and secret on first start.",
-              code: `${INSTALL_SUPERVISOR}\n${START_SUPERVISOR}`,
-            },
-            {
-              n: "02",
-              title: "Connect your agents",
-              body: "Create a key under Integrations; the dashboard shows the one command to run in your project.",
-              code: `${INSTALL_COMPANION}\nklaw-companion setup --api-url http://127.0.0.1:8000 --key rl_int_…`,
-            },
-            {
-              n: "03",
-              title: "Watch and decide",
-              body: "Every session appears live. Set a policy, answer approvals, stop what needs stopping.",
-              code: "# open the dashboard\n# Policies → control mode\n# Approvals → approve / deny",
-            },
-          ].map((step) => (
-            <div key={step.n} className="glass glass-hover flex flex-col gap-5 p-7">
-              <div className="flex items-baseline gap-3">
-                <span className="label-mono text-[var(--accent)]">{step.n}</span>
-                <h3 className="display display-bold text-[28px]">{step.title}</h3>
-              </div>
-              <p className="text-sm leading-relaxed text-muted">{step.body}</p>
-              <div className="mt-auto">
-                <CopyCode code={step.code} />
-              </div>
-            </div>
-          ))}
+      {/* closing */}
+      <section className="mx-auto max-w-[760px] px-5 py-[110px] text-center md:px-8">
+        <div className="mx-auto mb-6 h-[70px] w-[34px]">
+          <PixelScene name="claw" fit="contain" />
         </div>
-      </Section>
-
-      {/* THE KLAW AGENT */}
-      <Section
-        id="agent"
-        label="The Klaw agent"
-        light="Not a log viewer."
-        bold="An agent that supervises agents."
-        intro="Klaw runs its own agent next to yours. It plans, uses tools to gather evidence - files, the git diff, your tests - and decides and acts on what it finds. Bring any brain: Gemini, OpenAI, Anthropic, OpenRouter, Groq, DeepSeek, or a model running locally with Ollama."
-      >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {AGENT_FEATURES.map(({ step, title, body }) => (
-            <div key={title} className="glass glass-hover p-7">
-              <span className="label-mono text-[11px] text-[var(--accent)]">{step}</span>
-              <h3 className="display display-bold mt-4 text-[24px]">{title}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-muted">{body}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* CAPABILITIES */}
-      <Section
-        id="capabilities"
-        label="Capabilities"
-        light="What it catches."
-        bold="What it does about it."
-        intro="Hard rules the agent can never loosen, and the Klaw agent's judgement on top. Every decision is recorded with the rule or reasoning, and what the platform could actually carry out."
-      >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {CAPABILITIES.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="glass glass-hover p-7">
-              <Icon className="size-5 text-[var(--accent)]" strokeWidth={1.5} />
-              <h3 className="display display-bold mt-5 text-[24px]">{title}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-muted">{body}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* CONTROL MATRIX */}
-      <Section
-        id="control"
-        label="Control, not just traces"
-        light="Watching an agent"
-        bold="is not stopping it."
-        intro="Klaw plugs into each platform's own extension points, so it can act before a tool runs — and it tells you plainly what each platform cannot do."
-      >
-        <div className="glass overflow-x-auto">
-          <table className="w-full min-w-[620px] text-sm">
-            <thead>
-              <tr className="border-b border-line">
-                <th className="label-mono px-5 py-4 text-left text-faint">Capability</th>
-                <th className="label-mono px-5 py-4 text-left text-faint">Claude Code</th>
-                <th className="label-mono px-5 py-4 text-left text-faint">OpenAI Agents SDK</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MATRIX.map(([cap, cc, oa]) => (
-                <tr key={cap} className="border-b border-line last:border-0">
-                  <td className="px-5 py-3.5 text-ink">{cap}</td>
-                  {[cc, oa].map((v, i) => (
-                    <td
-                      key={i}
-                      className="label-mono px-5 py-3.5"
-                      style={{ color: v === "yes" ? "var(--success)" : v === "no" ? "var(--failed)" : "var(--text-faint)" }}
-                    >
-                      {v}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-6 grid gap-3 md:grid-cols-3">
-          {[
-            ["Observe", "Record and report. Nothing about the agent changes."],
-            ["Recommend", "The agent is told what's wrong. Nothing is refused."],
-            ["Control", "Block, hold for approval, stop, pause — within your policy."],
-          ].map(([mode, body]) => (
-            <div key={mode} className="glass p-5">
-              <div className="label-mono text-[var(--accent)]">{mode} mode</div>
-              <p className="mt-2 text-sm text-muted">{body}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* USE CASES */}
-      <Section
-        id="use-cases"
-        label="Use cases"
-        light="Built for agents that"
-        bold="touch real things."
-      >
-        <div className="grid gap-3 md:grid-cols-2">
-          {USE_CASES.map((u) => (
-            <div key={u.title} className="glass glass-hover p-8">
-              <div className="label-mono text-faint">{u.tag}</div>
-              <h3 className="display display-bold mt-4 text-[30px]">{u.title}</h3>
-              <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted">{u.body}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* WHO */}
-      <Section id="who" label="Who it's for" light="If you run agents," bold="it's for you.">
-        <div className="divide-y divide-[var(--border)] border-y border-line">
-          {PERSONAS.map(([who, why]) => (
-            <div key={who} className="grid gap-3 py-6 md:grid-cols-[1fr_1.6fr] md:gap-10">
-              <div className="display display-bold text-[26px]">{who}</div>
-              <p className="text-[15px] leading-relaxed text-muted">{why}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* LOCAL FIRST */}
-      <Section
-        id="local"
-        label="Local-first by design"
-        light="Your agents. Your machine."
-        bold="Your record."
-        className="dots-bg"
-      >
-        <div className="grid gap-3 md:grid-cols-4">
-          {[
-            [Activity, "Runs where you run it", "One process and one SQLite file. Back it up by copying it."],
-            [ShieldAlert, "Sends what's needed", "Secret-looking keys are redacted at the source; tool outputs are fingerprinted, not sent."],
-            [Ban, "Fails open", "If the supervisor is down, agents keep working and queue their events."],
-            [BadgeCheck, "Scoped keys", "An agent's key can report and ask — never read the dashboard or change policy."],
-          ].map(([Icon, title, body]) => {
-            const I = Icon as typeof Activity;
-            return (
-              <div key={title as string} className="glass glass-hover p-7">
-                <I className="size-5 text-[var(--accent)]" strokeWidth={1.5} />
-                <h3 className="display display-bold mt-5 text-[22px]">{title as string}</h3>
-                <p className="mt-2 text-sm text-muted">{body as string}</p>
-              </div>
-            );
-          })}
-        </div>
-      </Section>
-
-      {/* FAQ */}
-      <Section id="faq" label="FAQ" light="Questions," bold="answered plainly.">
-        <div className="grid gap-3 md:grid-cols-2">
-          {FAQ.map(([q, a]) => (
-            <div key={q} className="glass glass-hover p-7">
-              <h3 className="text-[16px] font-semibold text-ink">{q}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{a}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* CTA */}
-      <section className="grid-bg relative overflow-hidden border-b border-line">
-        <div className="glow glow-accent left-1/3 top-0 size-[600px]" />
-        <div className="relative mx-auto flex max-w-[1280px] flex-col items-start gap-8 px-5 py-24 md:px-8 lg:flex-row lg:items-end lg:justify-between">
-          <div className="hidden md:block">
-            <ClawMachine width={84} label="grab your agents" />
-          </div>
-          <h2 className="display text-[40px] sm:text-[56px] md:text-[80px]">
-            <span className="display-light block">Start supervising</span>
-            <span className="display-bold block">in five minutes.</span>
-          </h2>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/login?mode=signup" className="btn btn-accent">
-              Get started
-            </Link>
-            <Link href="/docs" className="btn btn-ghost">
-              Documentation
-            </Link>
-          </div>
-        </div>
+        <h2 className="display text-[34px] leading-[1.15] md:text-[44px]">
+          We&apos;re building the supervisor
+          <br />
+          your agents answer to
+        </h2>
+        <p className="mt-5 text-[14px] text-muted">
+          If that sounds useful,{" "}
+          <Link href="/docs/quickstart" className="arrow text-ink">
+            start it on your machine
+          </Link>
+        </p>
       </section>
     </>
   );

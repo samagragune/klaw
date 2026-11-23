@@ -1,41 +1,39 @@
 @import "tailwindcss";
 
 /*
- * Klaw design system - dark glass.
+ * Klaw design system - editorial glass.
  *
- * Studied from real dark developer-tool sites (Inspo: Sourcegraph, Superlist,
- * hiartem). A warm charcoal canvas; one light source bleeding up behind the
- * hero (indigo -> violet -> coral); translucent panels with a hairline edge and
- * a lit top rim. Coral is the only action colour; electric blue is signal
- * (focus, links, running). Instrument Sans for type, JetBrains Mono for data.
+ * Paper-white pages with a serif voice; pixel-art scenes drawn in code;
+ * glass reserved for what floats: the nav pill, the card over the hero
+ * scene, notifications. Dark pill buttons, a circled arrow, coral only as a
+ * rare accent. Instrument Serif for display, Inter for everything else.
  */
 
 :root {
-  --bg: #0b0b10;
-  --panel: rgba(255, 255, 255, 0.035);
-  --panel-raised: rgba(255, 255, 255, 0.06);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --text: #f2f1f4;
-  --text-muted: #a5a3ad;
-  --text-faint: #6c6a75;
-  --accent: #ef4f3c;           /* coral (Sourcegraph oklch 71% .19 27) */
-  --accent-soft: #ff6b58;
+  --bg: #fbfaf7;
+  --panel: #ffffff;
+  --panel-raised: #f6f4ef;
+  --border: rgba(28, 27, 25, 0.09);
+  --border-strong: rgba(28, 27, 25, 0.16);
+  --text: #1c1b19;
+  --text-muted: #6b6862;
+  --text-faint: #a19d96;
+  --accent: #ef4f3c;
+  --accent-soft: #f26f5f;
   --accent-ink: #ffffff;
-  --electric: #5b6cff;         /* electric blue (oklch 57% .2 265) */
-  --electric-soft: #8b97ff;
-  --violet: #8a6cff;
-  --code-bg: #0f0f17;
+  --ink-button: #1d1d1f;
+  --electric: #3b6fe0;
+  --code-bg: #1d1d1f;
 
-  --success: #34d399;
-  --running: #6f7dff;
-  --failed: #ff5d5d;
-  --serious: #ff8a5c;
-  --warning: #f6b445;
-  --cancelled: #a78bfa;
-  --paused: #f6b445;
-  --idle: #6c6a75;
-  --critical: #ff5d5d;
+  --success: #1f9d57;
+  --running: #3b6fe0;
+  --failed: #d93b3b;
+  --serious: #e0703a;
+  --warning: #c98a10;
+  --cancelled: #7c5cd6;
+  --paused: #c98a10;
+  --idle: #a19d96;
+  --critical: #d93b3b;
 }
 
 @theme inline {
@@ -60,13 +58,13 @@
   --color-critical: var(--critical);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, "Cascadia Mono", Menlo, monospace;
-  --font-display: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --radius-xs: 6px;
-  --radius-sm: 8px;
-  --radius-md: 10px;
+  --font-display: var(--font-serif), "Times New Roman", serif;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
-  --radius-2xl: 20px;
+  --radius-2xl: 24px;
 }
 
 * {
@@ -80,22 +78,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* One light source: a bleed from above, fixed behind everything. */
 body {
   font-family: var(--font-sans);
-  font-size: 14.5px;
-  letter-spacing: -0.005em;
-  min-height: 100vh;
-  background:
-    radial-gradient(70vw 48vw at 50% -12%, rgba(91, 108, 255, 0.22), transparent 62%),
-    radial-gradient(44vw 30vw at 78% 6%, rgba(138, 108, 255, 0.16), transparent 60%),
-    radial-gradient(40vw 28vw at 22% 10%, rgba(239, 79, 60, 0.14), transparent 60%),
-    var(--bg);
-  background-attachment: fixed;
+  font-size: 15px;
+  letter-spacing: -0.01em;
 }
 
 ::selection {
-  background: var(--accent);
+  background: #1d1d1f;
   color: #fff;
 }
 
@@ -107,7 +97,7 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(28, 27, 25, 0.15);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
@@ -115,57 +105,57 @@ body {
 
 /* ------------------------------------------------------------------ type */
 
-/* Large, light, tightly tracked (Sourcegraph ratio: 80 / 34). */
 .display {
   font-family: var(--font-display);
-  font-weight: 500;
-  line-height: 0.98;
-  letter-spacing: -0.032em;
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.022em;
 }
 .display-light {
-  font-weight: 400;
-  color: var(--text-muted);
+  color: var(--text);
 }
 .display-bold {
-  font-weight: 600;
+  color: inherit;
 }
-/* The one coloured line in a two-tone heading (Superlist's signature). */
+.serif {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+/* A quiet word inside a serif statement: faint, softly underlined. */
+.quiet,
 .text-gradient,
 .text-coral {
-  color: var(--accent);
+  color: var(--text-faint);
+  text-decoration: underline;
+  text-decoration-color: rgba(28, 27, 25, 0.18);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.16em;
 }
 
-/* Section label: a small glass chip with a coral dot. */
+/* Small section label: a row of ticks above a sans heading. */
 .bracket {
   display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 999px;
-  padding: 0.32rem 0.8rem;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  flex-direction: column;
+  gap: 0.55rem;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
 }
 .bracket::before {
   content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent);
+  width: 26px;
+  height: 8px;
+  background: repeating-linear-gradient(90deg, var(--text-faint) 0 1px, transparent 1px 6px);
 }
 
 .label-mono {
   font-family: var(--font-mono);
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
 }
 
 /* --------------------------------------------------------------- buttons */
@@ -177,72 +167,93 @@ button.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  height: 44px;
-  padding: 0 1.3rem;
+  gap: 0.55rem;
+  height: 40px;
+  padding: 0 1.05rem;
   font-family: var(--font-sans);
   font-size: 14.5px;
-  font-weight: 550;
-  letter-spacing: -0.005em;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: #ffffff;
   color: var(--text);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.4), background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+  transition: transform 0.16s cubic-bezier(0.2, 0.9, 0.3, 1.4), background-color 0.2s, box-shadow 0.2s;
   white-space: nowrap;
   cursor: pointer;
 }
 .btn:hover {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: #f6f4ef;
 }
 .btn:active,
 .press:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
   transition-duration: 0.08s;
 }
+/* The dark pill with a circled arrow. */
 .btn-accent {
-  background: var(--accent);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: var(--ink-button);
+  border-color: var(--ink-button);
   color: #fff;
-  box-shadow: 0 8px 28px -8px rgba(239, 79, 60, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 6px 16px -8px rgba(0, 0, 0, 0.55);
 }
 .btn-accent:hover {
-  background: var(--accent-soft);
-  border-color: rgba(255, 255, 255, 0.24);
-  box-shadow: 0 12px 36px -8px rgba(239, 79, 60, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  background: #2c2c2f;
+}
+.btn-accent::after,
+.arrow::after {
+  content: "›";
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.75;
+  transition: transform 0.2s;
+}
+.btn-accent:hover::after,
+.arrow:hover::after {
+  transform: translateX(2px);
 }
 .btn-ghost {
-  background: rgba(255, 255, 255, 0.03);
+  background: transparent;
+  border-color: transparent;
+}
+.btn-ghost:hover {
+  background: rgba(28, 27, 25, 0.05);
 }
 .btn-light {
-  background: var(--text);
-  border-color: var(--text);
-  color: #0b0b10;
-}
-.btn-light:hover {
-  background: #ffffff;
+  background: #fff;
 }
 .btn-sm {
   height: 34px;
-  padding: 0 0.95rem;
-  font-size: 13px;
+  padding: 0 0.85rem;
+  font-size: 13.5px;
+}
+/* Text link with an underline and a circled arrow. */
+.arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
 }
 
-/* Click ripple (added by <Ripples />). */
 .ripple {
   position: absolute;
   border-radius: 999px;
   pointer-events: none;
   transform: translate(-50%, -50%) scale(0);
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 70%);
-  animation: ripple 0.6s ease-out forwards;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 70%);
+  animation: ripple 0.55s ease-out forwards;
 }
 .ripple-dark {
-  background: radial-gradient(circle, rgba(239, 79, 60, 0.35), rgba(91, 108, 255, 0.12) 45%, rgba(0, 0, 0, 0) 70%);
+  background: radial-gradient(circle, rgba(28, 27, 25, 0.12), rgba(28, 27, 25, 0) 70%);
 }
 @keyframes ripple {
   to {
@@ -254,33 +265,70 @@ button.btn {
 /* ------------------------------------------------------------- surfaces */
 
 .grid-bg {
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-  background-size: 56px 56px;
-  -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%);
-  mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%);
+  background-image: radial-gradient(rgba(28, 27, 25, 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
 }
 .dots-bg {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(28, 27, 25, 0.08) 1px, transparent 1px);
   background-size: 18px 18px;
 }
-
 .ticks {
   position: relative;
 }
-
 .terminal {
   font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.75;
 }
-
 .code-glass {
-  background: rgba(5, 5, 10, 0.55);
-  color: #d9dbe8;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  background: #1d1d1f;
+  color: #e9e7e2;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 10px;
+}
+
+/* A white card on paper: hairline edge, inner frame, faint depth. */
+.glass {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(28, 27, 25, 0.04), 0 12px 32px -24px rgba(28, 27, 25, 0.25);
+}
+/* Real glass, for what floats over a scene. */
+.glass-strong,
+.glass-float {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 8px 30px -12px rgba(28, 27, 25, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  -webkit-backdrop-filter: blur(16px) saturate(170%);
+  backdrop-filter: blur(16px) saturate(170%);
+}
+/* Frosted card over the illustration: warm, blurred, white type. */
+.glass-photo {
+  background: linear-gradient(160deg, rgba(52, 32, 22, 0.48), rgba(52, 32, 22, 0.26));
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+  color: #fff;
+}
+.glass-hover {
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s;
+}
+.glass-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 1px 2px rgba(28, 27, 25, 0.05), 0 20px 40px -24px rgba(28, 27, 25, 0.35);
+}
+/* The framed diagram well inside a feature card. */
+.well {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fdfcfa;
+  box-shadow: inset 0 1px 3px rgba(28, 27, 25, 0.05);
+}
+
+.glow {
+  display: none;
 }
 
 /* ------------------------------------------------------------- motion */
@@ -297,7 +345,6 @@ button.btn {
 .pulse {
   animation: pulse-soft 2s ease-in-out infinite;
 }
-
 @keyframes row-in {
   from {
     opacity: 0;
@@ -311,11 +358,10 @@ button.btn {
 .row-in {
   animation: row-in 0.22s ease-out;
 }
-
 @keyframes rise-in {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -325,7 +371,6 @@ button.btn {
 .rise-in {
   animation: rise-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-
 @keyframes caret {
   0%,
   49% {
@@ -346,57 +391,22 @@ button.btn {
   background: currentColor;
   animation: caret 1s step-end infinite;
 }
-
-/* ------------------------------------------------------------- glass */
-
-/* Translucent panel: hairline edge, lit top rim, soft depth. */
-.glass {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 24px 48px -28px rgba(0, 0, 0, 0.8);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
+/* Diagram motion inside feature wells. */
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
-.glass-strong {
-  background: rgba(14, 14, 20, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  backdrop-filter: blur(24px) saturate(150%);
+.float-y {
+  animation: float-y 5s ease-in-out infinite;
 }
-.glass-hover {
-  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s, background-color 0.25s;
+@keyframes orbit {
+  to { transform: rotate(360deg); }
 }
-.glass-hover:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.16);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025));
-}
-
-.glow {
-  position: absolute;
-  border-radius: 9999px;
-  pointer-events: none;
-  filter: blur(80px);
-}
-.glow-accent {
-  background: radial-gradient(circle, rgba(239, 79, 60, 0.35), rgba(239, 79, 60, 0) 68%);
-}
-.glow-white {
-  background: radial-gradient(circle, rgba(91, 108, 255, 0.3), rgba(91, 108, 255, 0) 70%);
-}
-.glow-violet {
-  background: radial-gradient(circle, rgba(138, 108, 255, 0.3), rgba(138, 108, 255, 0) 70%);
-}
-@keyframes drift {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(30px, -20px); }
+.orbit {
+  animation: orbit 18s linear infinite;
 }
 .glow-drift {
-  animation: drift 18s ease-in-out infinite;
+  animation: none;
 }
 
 /* ------------------------------------------------------------- pixel claw */

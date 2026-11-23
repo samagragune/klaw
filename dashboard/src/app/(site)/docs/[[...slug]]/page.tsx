@@ -20,8 +20,8 @@ export default async function DocPage({ params }: { params: Promise<{ slug?: str
   const groups = Array.from(new Set(DOCS.map((d) => d.group)));
 
   return (
-    <div className="mx-auto grid max-w-[1280px] md:grid-cols-[250px_1fr]">
-      <aside className="border-b border-line px-5 py-8 md:sticky md:top-16 md:h-[calc(100vh-4rem)] md:overflow-y-auto md:border-r md:border-b-0 md:px-8">
+    <div className="mx-auto grid max-w-[1280px] pt-20 md:grid-cols-[250px_1fr]">
+      <aside className="border-b border-line px-5 py-8 md:sticky md:top-20 md:h-[calc(100vh-5rem)] md:overflow-y-auto md:border-r md:border-b-0 md:px-8">
         <div className="bracket mb-6">Docs</div>
         {groups.map((group) => (
           <div key={group} className="mb-7">

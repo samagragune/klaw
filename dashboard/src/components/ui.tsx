@@ -114,17 +114,17 @@ export function Button({
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const variants: Record<ButtonVariant, string> = {
     default:
-      "press border border-white/10 bg-white/[0.05] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-md hover:border-white/20 hover:bg-white/[0.09]",
+      "press border border-black/[0.12] bg-white text-ink shadow-[0_1px_2px_rgba(28,27,25,0.05)] hover:bg-[#f6f4ef]",
     primary:
-      "press ripple-light border border-white/15 bg-[var(--accent)] text-white shadow-[0_8px_24px_-8px_rgba(239,79,60,0.75),inset_0_1px_0_rgba(255,255,255,0.25)] hover:bg-[var(--accent-soft)]",
+      "press ripple-light border border-[#1d1d1f] bg-[#1d1d1f] text-white shadow-[0_6px_16px_-8px_rgba(0,0,0,0.55)] hover:bg-[#2c2c2f]",
     danger:
-      "press border border-[rgba(255,93,93,0.3)] bg-[rgba(255,93,93,0.1)] text-[var(--failed)] hover:bg-[rgba(255,93,93,0.18)]",
-    ghost: "press border border-transparent text-muted hover:bg-white/[0.06] hover:text-ink",
+      "press border border-[rgba(217,59,59,0.25)] bg-[rgba(217,59,59,0.06)] text-[var(--failed)] hover:bg-[rgba(217,59,59,0.12)]",
+    ghost: "press border border-transparent text-muted hover:bg-black/[0.04] hover:text-ink",
   };
   return (
     <button
       className={cn(
-        "relative inline-flex items-center gap-1.5 overflow-hidden rounded-full font-semibold transition-all duration-200",
+        "relative inline-flex items-center gap-1.5 overflow-hidden rounded-[10px] font-medium transition-all duration-200",
         "disabled:cursor-not-allowed disabled:opacity-40",
         size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm",
         variants[variant],
@@ -144,7 +144,7 @@ export function Input({
   return (
     <input
       className={cn(
-        "w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-ink outline-none transition placeholder:text-faint focus:border-[var(--electric)] focus:ring-4 focus:ring-[rgba(91,108,255,0.18)]",
+        "w-full rounded-lg border border-black/[0.12] bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-faint focus:border-[#1d1d1f] focus:ring-4 focus:ring-black/[0.06]",
         "placeholder:text-faint focus:border-[var(--accent)] focus:outline-none",
         className,
       )}
@@ -161,7 +161,7 @@ export function Select({
   return (
     <select
       className={cn(
-        "rounded-lg border border-white/10 bg-[#14141c] px-2.5 py-2 text-sm text-ink outline-none focus:border-[var(--electric)]",
+        "rounded-lg border border-black/[0.12] bg-white px-2.5 py-2 text-sm text-ink outline-none focus:border-[#1d1d1f]",
         "focus:border-[var(--accent)] focus:outline-none",
         className,
       )}

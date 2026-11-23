@@ -6,6 +6,7 @@ import { Check, Copy, GitBranch } from "lucide-react";
 
 import { REPO_URL } from "@/lib/site-constants";
 import { ClawMark } from "./claw";
+import { PixelScene } from "./pixel-scene";
 
 /* ----------------------------------------------------------------- brand */
 
@@ -26,98 +27,63 @@ export function Wordmark() {
 
 const NAV = [
   { href: "/#how", label: "How it works" },
-  { href: "/#capabilities", label: "Capabilities" },
-  { href: "/#use-cases", label: "Use cases" },
   { href: "/docs", label: "Docs" },
+  { href: REPO_URL, label: "Source" },
 ];
 
+/** A floating glass pill, centred over whatever is beneath it. */
 export function SiteNav() {
   return (
-    <header className="glass-strong sticky top-0 z-40 border-x-0 border-t-0">
-      <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-8 px-5 md:px-8">
-        <Wordmark />
-        <nav className="hidden items-center gap-7 md:flex">
-          {NAV.map((item) => (
-            <Link key={item.href} href={item.href} className="label-mono text-[12px] text-muted hover:text-ink">
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="ml-auto flex items-center gap-2">
-          <a href={REPO_URL} className="hidden items-center gap-1.5 px-2 text-muted hover:text-ink sm:flex" aria-label="Source on GitHub">
-            <GitBranch className="size-4" />
-            <span className="label-mono text-[12px]">Source</span>
-          </a>
-          <Link href="/login" className="btn btn-sm btn-ghost hidden sm:inline-flex">
-            Sign in
+    <header className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
+      <nav className="glass-float pointer-events-auto flex items-center gap-1 rounded-[14px] p-1.5">
+        <Link href="/" aria-label="Klaw home" className="press grid size-9 place-items-center rounded-[10px] bg-white/70 text-ink">
+          <ClawMark size={20} />
+        </Link>
+        {NAV.map((item) => (
+          <Link key={item.href} href={item.href} className="press hidden rounded-[10px] px-3 py-2 text-[14.5px] font-medium text-ink/80 hover:bg-white/60 hover:text-ink sm:block">
+            {item.label}
           </Link>
-          <Link href="/login?mode=signup" className="btn btn-sm btn-accent">
-            Get started
-          </Link>
-        </div>
-      </div>
+        ))}
+        <Link href="/login" className="press rounded-[10px] px-3 py-2 text-[14.5px] font-medium text-ink/80 hover:bg-white/60 hover:text-ink">
+          Sign in
+        </Link>
+        <Link href="/login?mode=signup" className="btn btn-sm btn-accent ml-1">
+          Get started
+        </Link>
+      </nav>
     </header>
   );
 }
 
 export function SiteFooter() {
-  const cols = [
-    {
-      title: "Product",
-      links: [
-        ["How it works", "/#how"],
-        ["Capabilities", "/#capabilities"],
-        ["Use cases", "/#use-cases"],
-        ["Who it's for", "/#who"],
-      ],
-    },
-    {
-      title: "Docs",
-      links: [
-        ["Quickstart", "/docs/quickstart"],
-        ["Connect Claude Code", "/docs/claude-code"],
-        ["Connect OpenAI Agents SDK", "/docs/openai-agents"],
-        ["Limitations", "/docs/limitations"],
-      ],
-    },
-    {
-      title: "Project",
-      links: [
-        ["Source code", REPO_URL],
-        ["Event protocol", "/docs/protocol"],
-        ["Security & privacy", "/docs/security"],
-        ["Sign in", "/login"],
-      ],
-    },
+  const links: [string, string][] = [
+    ["Home", "/"],
+    ["Docs", "/docs"],
+    ["Quickstart", "/docs/quickstart"],
+    ["The Klaw agent", "/docs/agent"],
+    ["Security", "/docs/security"],
+    ["Source", REPO_URL],
+    ["Sign in", "/login"],
   ];
   return (
-    <footer className="border-t border-line">
-      <div className="mx-auto grid max-w-[1280px] gap-10 px-5 py-14 md:grid-cols-[1.4fr_1fr_1fr_1fr] md:px-8">
-        <div className="space-y-4">
-          <Wordmark />
-          <p className="max-w-xs text-sm text-muted">
-            The supervisor for AI agents. Runs on your machine; this site is only the window onto it.
-          </p>
-        </div>
-        {cols.map((col) => (
-          <div key={col.title}>
-            <div className="label-mono mb-4 text-faint">{col.title}</div>
-            <ul className="space-y-2.5">
-              {col.links.map(([label, href]) => (
-                <li key={href}>
-                  <Link href={href} className="text-sm text-muted hover:text-ink">
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+    <footer className="mt-10">
+      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-4 px-5 py-8 md:px-8">
+        <nav className="flex flex-wrap gap-x-5 gap-y-2">
+          {links.map(([label, href]) => (
+            <Link key={label} href={href} className="text-[13.5px] text-muted hover:text-ink">
+              {label}
+            </Link>
+          ))}
+        </nav>
+        <a href={REPO_URL} className="btn btn-sm" aria-label="Klaw on GitHub">
+          <GitBranch className="size-4" /> Star on GitHub
+        </a>
       </div>
-      <div className="border-t border-line">
-        <div className="label-mono mx-auto flex max-w-[1280px] flex-wrap justify-between gap-3 px-5 py-5 text-faint md:px-8">
-          <span>Klaw · open source</span>
-          <span>Your data stays on your supervisor</span>
+      <div className="relative h-[200px] overflow-hidden">
+        <PixelScene name="line" />
+        <div className="absolute inset-x-0 bottom-0 flex justify-between px-5 pb-4 text-[12.5px] text-white/90 md:px-8">
+          <span>&copy; Klaw &middot; open source, MIT</span>
+          <span>Runs on your machine</span>
         </div>
       </div>
     </footer>
@@ -146,13 +112,11 @@ export function Section({
   return (
     <section id={id} className={`relative overflow-hidden border-b border-line ${className}`}>
       <div className="relative mx-auto max-w-[1280px] px-5 py-20 md:px-8 md:py-28">
-        <div className="mb-6 flex items-center gap-3">
-          <ClawMark size={18} className="claw-bob text-ink" />
+        <div className="mb-6">
           <span className="bracket">{label}</span>
         </div>
-        <h2 className="display text-[36px] sm:text-[44px] md:text-[64px]">
-          <span className="display-light block">{light}</span>
-          <span className="display-bold block">{bold}</span>
+        <h2 className="display text-[36px] sm:text-[44px] md:text-[56px]">
+          <span className="display-light">{light}</span> <span className="text-faint">{bold}</span>
         </h2>
         {intro ? <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-muted">{intro}</p> : null}
         {children ? <div className="mt-14">{children}</div> : null}
@@ -230,7 +194,7 @@ export function SupervisorTerminal() {
       accent: "text-[var(--accent)]",
     })[t ?? "dim"] ?? "";
   return (
-    <div className="glass overflow-hidden shadow-[0_40px_120px_-40px_rgba(239,79,60,0.35)]">
+    <div className="code-glass overflow-hidden">
       <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
         <div className="flex gap-1.5">
           <span className="size-2 rounded-full bg-line-strong" />

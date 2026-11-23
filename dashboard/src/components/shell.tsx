@@ -97,7 +97,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      <aside className="glass-strong sticky top-3 z-10 m-3 mr-0 hidden h-[calc(100vh-1.5rem)] w-60 shrink-0 flex-col overflow-hidden rounded-[24px] md:flex">
+      <aside className="sticky top-3 z-10 m-3 mr-0 hidden h-[calc(100vh-1.5rem)] w-60 shrink-0 flex-col overflow-hidden rounded-[18px] border border-line bg-[#f4f2ed] md:flex">
         <Link href="/" className="flex items-center gap-2.5 border-b border-line px-4 py-4 text-ink">
           <LogoMark size={20} />
           <div className="min-w-0">
@@ -121,8 +121,8 @@ export function Shell({ children }: { children: ReactNode }) {
                       className={cn(
                         "press flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-all duration-200",
                         active
-                          ? "bg-white/[0.07] font-medium text-ink shadow-[inset_2px_0_0_var(--accent),inset_0_1px_0_rgba(255,255,255,0.06)]"
-                          : "text-muted hover:bg-white/[0.04] hover:text-ink",
+                          ? "bg-white font-medium text-ink shadow-[0_1px_2px_rgba(28,27,25,0.08),0_0_0_1px_rgba(28,27,25,0.06)]"
+                          : "text-muted hover:bg-black/[0.04] hover:text-ink",
                       )}
                     >
                       <Icon className="size-4" strokeWidth={1.75} />
@@ -192,8 +192,8 @@ export function PageHeader({
         <div className="min-w-0">
           <h1
             className={cn(
-              "display display-bold line-clamp-2 text-ink",
-              typeof title === "string" && title.length > 48 ? "text-[24px] leading-tight" : "text-[34px]",
+              "display line-clamp-2 text-ink",
+              typeof title === "string" && title.length > 48 ? "text-[28px] leading-tight" : "text-[40px]",
             )}
             title={typeof title === "string" ? title : undefined}
           >
