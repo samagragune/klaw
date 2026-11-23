@@ -176,6 +176,33 @@ def _policy_lists(config: dict[str, Any], tool_name: str | None, mode: str) -> V
     return None
 
 
+def _secrets_rule(tool_name: str | None, tool_input: Any) -> Verdict | None:
+    """A key or token in a command or a file write: stop it before it lands."""
+    from klaw_supervisor.supervision.agent_features import scan_secrets
+
+    findings = scan_secrets(tool_input)
+    if not findings:
+        return None
+    top = findings[0]
+    return Verdict(
+        A.BLOCK,
+        f"secrets.{top.rule}",
+        f"{tool_name} would expose {top.description} ({top.redacted}).",
+        feedback=(
+            f"This would put {top.description} into a command or a file, where it can leak "
+            "(history, commits, logs). Read it from an environment variable or a secrets "
+            "manager instead, and never print or commit it."
+        ),
+        incident={
+            "category": "secret_leak",
+            "severity": IncidentSeverity.HIGH,
+            "title": f"Blocked: {tool_name} would expose {top.description}",
+            "description": f"Matched {', '.join(f.rule for f in findings)}.",
+            "evidence": {"tool_name": tool_name, "findings": [f.__dict__ for f in findings]},
+        },
+    )
+
+
 def _approval_list(config: dict[str, Any], tool_name: str | None, mode: str) -> Verdict | None:
     if tool_name and mode == SupervisionMode.CONTROL and tool_name in (
         config.get("approval_required_tools") or []
@@ -358,7 +385,7 @@ async def _agent_action(
     """Ask the Klaw agent about one tool call. ``None``: the rules decide."""
     if not klaw_agent.enabled(config):
         return None
-    if rule_verdict is not None and rule_verdict.rule.startswith("policy."):
+    if rule_verdict is not None and rule_verdict.rule.startswith(("policy.", "secrets.")):
         return None  # the policy already settled it; no model call needed
     findings = risk.assess(tool_name, tool_input) if config.get("risk_rules_enabled", True) else []
     severity = findings[0].severity if findings else None
@@ -515,7 +542,8 @@ async def decide(
             if (task is None or e.task_id == task.id) and (event is None or e.id != event.id)
         ]
         rule_verdict = (
-            _policy_lists(config, tool_name, mode)
+            _secrets_rule(tool_name, tool_input)
+            or _policy_lists(config, tool_name, mode)
             or _risk_rule(config, tool_name, tool_input)
             or _loop_rule(config, task_events, tool_name, payload.get("args_fingerprint"))
             or _approval_list(config, tool_name, mode)
@@ -607,6 +635,14 @@ async def decide(
             execution.status = "running"
 
     decision.latency_ms = round((time.perf_counter() - started) * 1000, 2)
+    if action in (A.BLOCK, A.STOP, A.REQUEST_APPROVAL, A.ESCALATE_TO_HUMAN):
+        from klaw_supervisor.supervision.agent_features import notify_webhook
+
+        await notify_webhook(
+            session, execution.user_id,
+            f"Klaw {action.replace('_', ' ').lower()}: {(execution.task or 'session')[:80]} - "
+            f"{verdict.reason[:300]}",
+        )
     await _trace(session, execution, decision, payload, approval)
     await _notify(execution, decision, approval)
     return decision, approval

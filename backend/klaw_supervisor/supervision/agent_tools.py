@@ -428,5 +428,16 @@ NOTIFY_OPERATOR = Tool("notify_operator", "Tell the human operator something on 
                        _schema({"message": S, "severity": {"type": "string", "enum": ["low", "medium", "high"]},
                                 "suggested_action": S}, ["message"]), _notify_operator)
 
-INVESTIGATE = [READ_FILE, LIST_DIR, SEARCH, GIT, RUN_CHECK, SESSION_HISTORY, PROJECT_HISTORY, REMEMBER, UPDATE_PLAN]
+async def _changes_since_task_start(ctx: ToolContext, args: dict[str, Any]) -> str:
+    from klaw_supervisor.supervision.agent_features import diff_since
+
+    return await diff_since(ctx.execution, stat_only=bool(args.get("stat_only")))
+
+
+CHANGES = Tool("changes_since_task_start", "Everything changed in the project since the checkpoint Klaw "
+               "took when this task started (more precise than git diff when the tree was already dirty), "
+               "plus new untracked files.", _schema({"stat_only": {"type": "boolean"}}), _changes_since_task_start)
+
+INVESTIGATE = [READ_FILE, LIST_DIR, SEARCH, GIT, CHANGES, RUN_CHECK, SESSION_HISTORY, PROJECT_HISTORY,
+               REMEMBER, UPDATE_PLAN]
 ACT = [SEND_GUIDANCE, STOP_SESSION, NOTIFY_OPERATOR]

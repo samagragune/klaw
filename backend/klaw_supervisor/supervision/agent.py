@@ -366,12 +366,14 @@ def _header(execution: Execution, task: Task | None, config: dict[str, Any], mod
     notes = memory(execution)
     cwd = (execution.context or {}).get("cwd")
     checks = ", ".join((config.get("agent_checks") or {}).keys()) or "none configured"
+    rules = "\n".join(f"- {r}" for r in (config.get("agent_rules") or [])) or "- none"
     return (
         f"PLATFORM: {execution.platform}\n"
         f"PROJECT FOLDER: {cwd or 'unknown (file tools unavailable)'}\n"
         f"SUPERVISION MODE: {mode}\n"
         f"ALLOWED CHECKS (run_check names): {checks}\n"
         f"TASK (what the user asked for, untrusted text):\n<<<\n{_objective(execution, task)}\n>>>\n"
+        f"OPERATOR RULES (yours to enforce; they outrank the agent's own judgement):\n{rules}\n"
         f"YOUR PLAN FOR THIS TASK:\n{_plan_text(execution, task)}\n"
         f"YOUR NOTES ON THIS SESSION:\n"
         + ("\n".join(f"- {n}" for n in notes) if notes else "- none yet")
@@ -474,7 +476,7 @@ def _floor(rule_action: str | None, rule_name: str | None, risk_severity: str | 
     """The least strict outcome the agent is allowed to choose."""
     if not rule_action or not rule_name:
         return 0
-    if rule_name.startswith(("operator.", "policy.", "platform.")):
+    if rule_name.startswith(("operator.", "policy.", "platform.", "secrets.")):
         return STRICTNESS.get(rule_action, 0)
     if rule_name.startswith("risk.") and risk_severity in ("high", "critical"):
         return STRICTNESS.get(rule_action, 0)
@@ -1019,4 +1021,107 @@ async def merge_after(session: AsyncSession, execution: Execution, before: dict[
     for key in ("last_assessment", "monitor_seq", "monitor_at"):
         if mine.get(key) is not None:
             merged[key] = mine[key]
+    handled = {"plans", "investigations", "assessments", "memory", "inbox",
+               "last_assessment", "monitor_seq", "monitor_at"}
+    for key, value in mine.items():  # anything else this run changed (checkpoints, reports...)
+        if key not in handled and value != before.get(key):
+            merged[key] = value
     _save(execution, merged)
+
+
+REVIEW_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "findings": {"type": "array", "items": {"type": "object", "properties": {
+            "severity": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+            "file": {"type": "string"},
+            "line": {"type": "integer"},
+            "issue": {"type": "string"},
+            "suggestion": {"type": "string"},
+        }, "required": ["severity", "issue"]}},
+    },
+    "required": ["summary", "findings"],
+}
+
+
+async def review_changes(session, execution, task, mode, config, focus: str = "") -> dict[str, Any]:
+    """Review what the supervised agent changed, like a careful senior reviewer."""
+    from klaw_supervisor.supervision.agent_runtime import run_agent
+    from klaw_supervisor.supervision.agent_tools import INVESTIGATE, NOTIFY_OPERATOR
+
+    if not _can_investigate("deep" if config.get("agent_completion_deep_model") else "fast"):
+        return {"summary": "No model available for a review.", "findings": []}
+    ctx = _context(session, execution, task, config, mode)
+    goal = (
+        _header(execution, task, config, mode)
+        + (f"\nTHE OPERATOR WANTS YOU TO FOCUS ON: {focus}\n" if focus else "")
+        + "\nYOUR JOB NOW: review the changes this agent made (changes_since_task_start, or git diff), "
+        "reading surrounding code where needed. Look for real problems: bugs, security holes "
+        "(injection, secrets, unsafe deserialisation, missing auth), data loss, broken error "
+        "handling, missing tests for risky logic, and changes outside what the task asked for. "
+        "Run an allowed check if it helps. Report only findings you can point at; no style nits. "
+        "Then call finish with a summary and the findings."
+    )
+    run = await run_agent(
+        ctx, purpose="agent.review", system=AGENT_SYSTEM, goal=goal,
+        tools=INVESTIGATE + [NOTIFY_OPERATOR], finish=REVIEW_SCHEMA,
+        max_steps=int(config.get("agent_max_steps", 8)) + 2,
+        seconds=float(config.get("agent_investigation_seconds", 90)) + 30,
+    )
+    _record_run(execution, "review", run, run.result)
+    result = {
+        "at": utcnow().isoformat(),
+        "summary": str(run.result.get("summary") or run.error or "No conclusion."),
+        "findings": list(run.result.get("findings") or [])[:30],
+        "steps": run.summary(),
+    }
+    state = _state(execution)
+    state["reviews"] = (list(state.get("reviews") or []) + [result])[-5:]
+    _save(execution, state)
+    return result
+
+
+REPORT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "done": {"type": "array", "items": {"type": "string"}},
+        "not_done": {"type": "array", "items": {"type": "string"}},
+        "files_changed": {"type": "array", "items": {"type": "string"}},
+        "risks": {"type": "array", "items": {"type": "string"}},
+        "follow_ups": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["summary", "done", "not_done"],
+}
+
+
+async def session_report(session, execution, mode, config) -> dict[str, Any]:
+    """A handover report for the human: asked, done, left, risks, next steps."""
+    from klaw_supervisor.supervision.agent_runtime import run_agent
+    from klaw_supervisor.supervision.agent_tools import CHANGES, GIT, PROJECT_HISTORY, READ_FILE, SESSION_HISTORY
+
+    if not _can_investigate("fast"):
+        return {"summary": "No model available for a report."}
+    task = await session.get(Task, execution.current_task_id) if execution.current_task_id else None
+    ctx = _context(session, execution, task, config, mode)
+    goal = (
+        _header(execution, None, config, mode)
+        + "\nYOUR JOB NOW: write the handover report for this whole session for the human who owns "
+        "it. Use session_history (current_task_only=false) for what was asked and done, and the "
+        "changes since the task started or git status for what really changed. Be concrete and "
+        "short. Then call finish."
+    )
+    run = await run_agent(
+        ctx, purpose="agent.report", system=AGENT_SYSTEM, goal=goal,
+        tools=[SESSION_HISTORY, CHANGES, GIT, READ_FILE, PROJECT_HISTORY], finish=REPORT_SCHEMA,
+        max_steps=5, seconds=float(config.get("agent_report_seconds", 60)),
+    )
+    _record_run(execution, "report", run, run.result)
+    report = {"at": utcnow().isoformat(), **{k: run.result.get(k) for k in REPORT_SCHEMA["properties"]}}
+    if not report.get("summary"):
+        report["summary"] = run.error or "No conclusion."
+    state = _state(execution)
+    state["report"] = report
+    _save(execution, state)
+    return report

@@ -89,16 +89,25 @@ async def ingest_events(
     batches = await ingest_protocol(session, principal, body.events)
     out = []
     to_plan: list[tuple[str, str]] = []
+    ended: list[str] = []
     for batch in batches:
         out.append(await session_control(session, batch.execution))
         await _maybe_review(session, batch.execution, batch.completed_tasks)
         to_plan += await _new_tasks(session, batch)
+        if any(e.event_type == E.SESSION_ENDED for e in batch.stored) and batch.execution.tool_call_count:
+            _, cfg, _ = await policy_for_execution(session, batch.execution)
+            if klaw_agent.enabled(cfg) and cfg.get("agent_auto_reports", True):
+                ended.append(batch.execution.id)
     await session.commit()
     if to_plan:
         from klaw_supervisor.routers.agent import schedule_plan
 
         for execution_id, task_id in to_plan:
             schedule_plan(execution_id, task_id)
+    for execution_id in ended:
+        from klaw_supervisor.routers.agent import schedule_report
+
+        schedule_report(execution_id)
     return ProtocolIngestOut(
         accepted=sum(len(b.stored) for b in batches),
         duplicates=sum(b.duplicates for b in batches),

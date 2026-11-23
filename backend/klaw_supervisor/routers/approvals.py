@@ -73,6 +73,9 @@ async def decide_approval(
     approval.decided_at = utcnow()
     approval.decided_by = user.email
     approval.note = body.note
+    from klaw_supervisor.supervision.agent_features import learn_from_approval
+
+    await learn_from_approval(session, approval)
 
     execution = await session.get(Execution, approval.execution_id)
     if execution is not None:

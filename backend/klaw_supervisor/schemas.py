@@ -309,6 +309,13 @@ class PolicyConfiguration(BaseModel):
     #: Judge completions with SUPERVISOR_MODEL instead of the fast model.
     #: More thorough, much slower; the agent waits for it at every Stop.
     agent_completion_deep_model: bool = False
+    #: Rules in plain words the agent enforces on every action and verdict,
+    #: e.g. "Never edit files under migrations/", "Ask before installing packages".
+    agent_rules: list[str] = Field(default_factory=list, max_length=50)
+    #: Slack/Discord/any URL: blocks, stops, escalations and approvals needed.
+    notify_webhook_url: str | None = None
+    #: Write a report when a session ends (what was asked, done, left, risks).
+    agent_auto_reports: bool = True
     #: Work out each new task's requirements and how to verify them.
     agent_plan_tasks: bool = True
     #: Commands the agent may run in the session's project folder, by name

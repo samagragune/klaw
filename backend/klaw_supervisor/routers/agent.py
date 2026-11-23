@@ -279,6 +279,9 @@ async def _plan_in_background(execution_id: str, task_id: str) -> None:
                 return
             mode, config, _ = await policy_for_execution(session, execution)
             before = klaw_agent.snapshot(execution)
+            from klaw_supervisor.supervision.agent_features import create_checkpoint
+
+            await create_checkpoint(execution, f"task start: {(task.objective or '')[:60]}")
             await klaw_agent.plan_task(session, execution, task, mode, config)
             await klaw_agent.merge_after(session, execution, before)
             await session.commit()
@@ -328,3 +331,153 @@ async def agent_chat(body: ChatIn, user: CurrentUser, session: DbSession) -> dic
     await klaw_agent.merge_after(session, execution, before)
     await session.commit()
     return {**result, "execution_id": execution.id}
+
+
+# ---------------------------------------------------------------------------
+# Reviews, reports, checkpoints, digest, effectiveness
+# ---------------------------------------------------------------------------
+
+async def _owned(session, user, execution_id: str) -> Execution:
+    from fastapi import HTTPException
+
+    execution = await session.get(Execution, execution_id)
+    if execution is None or execution.user_id != user.id:
+        raise HTTPException(404, "Session not found")
+    return execution
+
+
+class ReviewIn(BaseModel):
+    focus: str = Field(default="", max_length=1000)
+
+
+@router.post("/sessions/{execution_id}/review")
+async def review_session(execution_id: str, body: ReviewIn, user: CurrentUser, session: DbSession) -> dict[str, Any]:
+    """The agent reviews the code this session changed and lists real findings."""
+    execution = await _owned(session, user, execution_id)
+    task = await session.get(Task, execution.current_task_id) if execution.current_task_id else None
+    mode, config, _ = await policy_for_execution(session, execution)
+    before = klaw_agent.snapshot(execution)
+    result = await klaw_agent.review_changes(session, execution, task, mode, config, body.focus)
+    await klaw_agent.merge_after(session, execution, before)
+    await session.commit()
+    return result
+
+
+@router.post("/sessions/{execution_id}/report")
+async def report_session(execution_id: str, user: CurrentUser, session: DbSession) -> dict[str, Any]:
+    execution = await _owned(session, user, execution_id)
+    mode, config, _ = await policy_for_execution(session, execution)
+    before = klaw_agent.snapshot(execution)
+    report = await klaw_agent.session_report(session, execution, mode, config)
+    await klaw_agent.merge_after(session, execution, before)
+    await session.commit()
+    return report
+
+
+@router.get("/reports")
+async def list_reports(user: CurrentUser, session: DbSession, limit: int = 20) -> list[dict[str, Any]]:
+    rows = (await session.execute(
+        select(Execution).where(Execution.user_id == user.id)
+        .order_by(Execution.last_event_at.desc()).limit(200)
+    )).scalars()
+    out = []
+    for execution in rows:
+        report = ((execution.context or {}).get("klaw_agent") or {}).get("report")
+        if report:
+            out.append({"execution_id": execution.id, "task": execution.task, **report})
+        if len(out) >= limit:
+            break
+    return out
+
+
+async def _report_in_background(execution_id: str) -> None:
+    from klaw_supervisor.db import SessionLocal
+
+    try:
+        async with SessionLocal() as session:
+            execution = await session.get(Execution, execution_id)
+            if execution is None:
+                return
+            mode, config, _ = await policy_for_execution(session, execution)
+            before = klaw_agent.snapshot(execution)
+            report = await klaw_agent.session_report(session, execution, mode, config)
+            await klaw_agent.merge_after(session, execution, before)
+            await session.commit()
+    except Exception:
+        logger.exception("agent report failed for %s", execution_id)
+
+
+def schedule_report(execution_id: str) -> None:
+    task = asyncio.create_task(_report_in_background(execution_id))
+    _background.add(task)
+    task.add_done_callback(_background.discard)
+
+
+@router.get("/sessions/{execution_id}/checkpoints")
+async def session_checkpoints(execution_id: str, user: CurrentUser, session: DbSession) -> dict[str, Any]:
+    from klaw_supervisor.supervision.agent_features import checkpoints, diff_since
+
+    execution = await _owned(session, user, execution_id)
+    points = checkpoints(execution)
+    return {"checkpoints": points,
+            "changes_since_latest": await diff_since(execution, stat_only=True) if points else None}
+
+
+class RestoreIn(BaseModel):
+    sha: str = Field(min_length=7, max_length=40)
+
+
+@router.post("/sessions/{execution_id}/restore")
+async def restore(execution_id: str, body: RestoreIn, user: CurrentUser, session: DbSession) -> dict[str, Any]:
+    """Undo: put the project's tracked files back to a checkpoint. Operator only."""
+    from fastapi import HTTPException
+
+    from klaw_supervisor.security import record_audit
+    from klaw_supervisor.supervision.agent_features import restore_checkpoint
+
+    execution = await _owned(session, user, execution_id)
+    try:
+        result = await restore_checkpoint(execution, body.sha)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    await record_audit(session, user_id=user.id, actor="user", action="agent.restore_checkpoint",
+                       target_type="execution", target_id=execution.id, detail=result)
+    await session.commit()
+    return result
+
+
+@router.get("/digest")
+async def agent_digest(user: CurrentUser, session: DbSession, hours: int = 24) -> dict[str, Any]:
+    from klaw_supervisor.supervision.agent_features import digest
+
+    return await digest(session, user.id, max(1, min(hours, 24 * 30)))
+
+
+@router.get("/effectiveness")
+async def agent_effectiveness(user: CurrentUser, session: DbSession, hours: int = 168) -> dict[str, Any]:
+    from klaw_supervisor.supervision.agent_features import effectiveness
+
+    return await effectiveness(session, user.id, max(1, min(hours, 24 * 90)))
+
+
+@router.get("/memory")
+async def agent_memory(user: CurrentUser, session: DbSession, project: str | None = None) -> list[dict[str, Any]]:
+    """What the agent has learned, per project."""
+    from klaw_supervisor.models import AgentMemory
+
+    query = select(AgentMemory).where(AgentMemory.user_id == user.id)
+    if project:
+        query = query.where(AgentMemory.project == project)
+    rows = (await session.execute(query.order_by(AgentMemory.created_at.desc()).limit(200))).scalars()
+    return [{"id": m.id, "project": m.project, "note": m.note, "at": m.created_at.isoformat()} for m in rows]
+
+
+@router.delete("/memory/{memory_id}")
+async def forget(memory_id: str, user: CurrentUser, session: DbSession) -> dict[str, Any]:
+    from klaw_supervisor.models import AgentMemory
+
+    memory = await session.get(AgentMemory, memory_id)
+    if memory is not None and memory.user_id == user.id:
+        await session.delete(memory)
+        await session.commit()
+    return {"deleted": memory_id}

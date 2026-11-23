@@ -161,6 +161,12 @@ async def sweep_once() -> tuple[int, int]:
             except Exception:
                 logger.exception("sweep failed for execution %s", execution.id)
                 await session.rollback()
+        try:
+            from klaw_supervisor.supervision.agent_features import detect_conflicts
+
+            await detect_conflicts(session)
+        except Exception:
+            logger.exception("conflict detection failed")
         await session.commit()
         return len(executions), reaped
 
