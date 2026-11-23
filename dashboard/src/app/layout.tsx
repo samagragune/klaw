@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Gloock, JetBrains_Mono, Schibsted_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Ripples } from "@/components/ripples";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
-// Editorial serif voice for display type.
-const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", variable: "--font-serif", display: "swap" });
+// Schibsted Grotesk: a newspaper grotesk for UI and body text.
+const inter = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+// Gloock: a sharp, high-contrast editorial serif for display type.
+const serif = Gloock({ subsets: ["latin"], weight: "400", variable: "--font-serif", display: "swap" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
 
 export const metadata: Metadata = {

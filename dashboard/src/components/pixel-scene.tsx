@@ -1,15 +1,17 @@
 "use client";
 
 /**
- * Pixel-art scenes for the Klaw site, drawn in code (no image assets).
+ * Animated pixel-art scenes for the Klaw site, drawn in code (no assets).
  *
- * The world: an agent workshop at golden hour. Tall factory windows glow
- * coral and amber, light shafts cross the floor, server racks blink, and
- * small robot agents move crates of work along a conveyor - while the Klaw
- * claw rides a ceiling gantry, ready to lift out the one that shouldn't ship.
+ * The world: an agent workshop at dusk. Robots walk the floor and ride crates
+ * along a conveyor; racks blink; the city beyond the windows twinkles; and
+ * the Klaw claw waits on its gantry, drops onto the one coral crate that
+ * shouldn't ship, and carries it to the reject bin.
  *
- * Scenes are painted once at low resolution and scaled up with
- * nearest-neighbour sampling. A seeded generator keeps every load identical.
+ * Each scene paints its static backdrop once, then redraws only the moving
+ * parts on a small clock (about 12 frames a second, the pace of pixel art).
+ * Animation runs only while the scene is on screen and never for visitors
+ * who ask for reduced motion.
  */
 
 import { useEffect, useRef } from "react";
@@ -17,27 +19,20 @@ import { useEffect, useRef } from "react";
 type RGB = [number, number, number];
 const hex = (h: string): RGB => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 const mix = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 const dither = (x: number, y: number) => BAYER[(y & 3) * 4 + (x & 3)];
-
-function rng(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+const hash = (a: number, b = 0) => {
+  let h = (a * 374761393 + b * 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+};
 
 class Canvas {
   data: Uint8ClampedArray;
   constructor(public w: number, public h: number) {
     this.data = new Uint8ClampedArray(w * h * 4);
   }
-  set(x: number, y: number, c: RGB, a = 255) {
+  set(x: number, y: number, c: RGB) {
     x = Math.round(x);
     y = Math.round(y);
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
@@ -45,51 +40,71 @@ class Canvas {
     this.data[i] = c[0];
     this.data[i + 1] = c[1];
     this.data[i + 2] = c[2];
-    this.data[i + 3] = a;
+    this.data[i + 3] = 255;
   }
   get(x: number, y: number): RGB {
     const i = (Math.round(y) * this.w + Math.round(x)) * 4;
     return [this.data[i], this.data[i + 1], this.data[i + 2]];
   }
-  /** Tint toward a colour; t is quantised with dithering to keep it pixel-pure. */
-  tint(x: number, y: number, c: RGB, t: number) {
-    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
-    const q = Math.floor(t * 3 + dither(x, y)) / 3;
-    if (q <= 0) return;
-    this.set(x, y, mix(this.get(x, y), c, Math.min(1, q)));
+  blend(x: number, y: number, c: RGB, t: number) {
+    x = Math.round(x);
+    y = Math.round(y);
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h || t <= 0) return;
+    this.set(x, y, mix(this.get(x, y), c, Math.min(1, t)));
   }
   rect(x: number, y: number, w: number, h: number, c: RGB) {
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.set(x + i, y + j, c);
   }
 }
 
-const C = {
-  wall: hex("#262130"),
-  wallShade: hex("#1f1b28"),
-  wallDeep: hex("#17141e"),
-  beam: hex("#3b3243"),
-  floor: hex("#2c2532"),
-  floorDark: hex("#221c28"),
-  ink: hex("#0e0d12"),
-  inkSoft: hex("#1c1a23"),
-  steel: hex("#4c4858"),
-  steelLight: hex("#7d7890"),
-  coral: hex("#ef4f3c"),
-  coralDark: hex("#b8352a"),
-  amber: hex("#f6b445"),
-  cream: hex("#f6efe4"),
-  creamShade: hex("#d9cdbd"),
-  screen: hex("#1f2a2e"),
-  eye: hex("#5fe3a8"),
-  sun: hex("#ffc779"),
-  crate: hex("#9a6b43"),
-  crateDark: hex("#6e4a2c"),
-  green: hex("#5fe3a8"),
+/* ------------------------------------------------------------- palette */
+
+const P = {
+  ceiling: hex("#131017"),
+  wall: hex("#1d1922"),
+  brick: hex("#211c27"),
+  mortar: hex("#18141d"),
+  pipe: hex("#2c2733"),
+  pipeHi: hex("#3d3746"),
+  frame: hex("#2b2531"),
+  sill: hex("#383040"),
+  skyline: hex("#0e0f22"),
+  lit: hex("#e2ad6e"),
+  rack: hex("#0d0c11"),
+  rackPanel: hex("#16141b"),
+  vent: hex("#221f29"),
+  ledG: hex("#3fbf8f"),
+  ledA: hex("#d9a24a"),
+  ledC: hex("#e2604a"),
+  floor: hex("#191520"),
+  plank: hex("#15111b"),
+  grain: hex("#1d1925"),
+  belt: hex("#0b0a0e"),
+  roller: hex("#3a3542"),
+  leg: hex("#2a2631"),
+  crate: hex("#6d4c33"),
+  crateHi: hex("#84603f"),
+  crateLo: hex("#523824"),
+  bad: hex("#d4553f"),
+  badHi: hex("#e8735c"),
+  badLo: hex("#9e3a2b"),
+  bot: hex("#d9d2c6"),
+  botLo: hex("#aaa297"),
+  screen: hex("#141a1c"),
+  eye: hex("#59d39f"),
+  eyeA: hex("#e0a44f"),
+  metal: hex("#4a4554"),
+  ink: hex("#0b0a0e"),
+  claw: hex("#0b0a0e"),
+  clawAccent: hex("#e05a44"),
+  lamp: hex("#f0c27a"),
+  dusk: ["#12142c", "#201e44", "#3f2e58", "#7d4559", "#b2614b", "#c98650"],
+  bin: hex("#26222d"),
 };
 
 /* ------------------------------------------------------------- painters */
 
-function gradient(c: Canvas, x0: number, y0: number, w: number, h: number, stops: string[], bands = 6) {
+function gradient(c: Canvas, x0: number, y0: number, w: number, h: number, stops: string[], bands = 7) {
   const cols = stops.map(hex);
   for (let y = y0; y < y0 + h; y++) {
     const t = (y - y0) / Math.max(1, h - 1);
@@ -102,278 +117,453 @@ function gradient(c: Canvas, x0: number, y0: number, w: number, h: number, stops
   }
 }
 
-/** Arched factory window with mullions and a sunset beyond. */
-function windowPane(c: Canvas, x: number, y: number, w: number, h: number) {
-  gradient(c, x, y, w, h, ["#171a42", "#33296a", "#7d4379", "#e2684f", "#f3a24a"], 5);
-  // distant skyline of server towers, a few windows still lit
-  const r = rng(x * 7 + y);
-  for (let i = x; i < x + w; i += 3 + Math.floor(r() * 3)) {
-    const th = 4 + Math.floor(r() * h * 0.38);
-    for (let j = 0; j < th; j++) for (let k = 0; k < 3; k++) {
-      c.set(i + k, y + h - 1 - j, j % 3 === 1 && k === 1 && r() < 0.35 ? hex("#ffc779") : hex("#141533"));
-    }
-  }
-  for (let i = x; i < x + w; i++) {
-    c.set(i, y, C.beam);
-    c.set(i, y + h, C.beam);
-    if ((i - x) % Math.floor(w / 3) === 0) for (let j = y; j < y + h; j++) c.set(i, j, C.beam);
-  }
-  for (let j = y; j <= y + h; j++) c.set(x + w, j, C.beam);
-  for (const fy of [0.33, 0.66]) for (let i = x; i < x + w; i++) c.set(i, y + Math.round(h * fy), C.beam);
-}
-
-/** Warm light shafts falling from the windows. */
-function lightShafts(c: Canvas, windows: [number, number, number, number][]) {
-  // the dusk outside spills a little coral onto the floor
-  for (const [x, y, w, h] of windows) {
-    for (let j = y + h; j < c.h; j++) {
-      const drift = (j - (y + h)) * 0.55;
-      const fade = 1 - (j - (y + h)) / (c.h - y - h);
-      for (let i = 0; i < w; i++) {
-        const px = Math.round(x + i + drift);
-        if (px >= 0 && px < c.w) c.set(px, j, mix(c.get(px, j), hex("#e2684f"), 0.07 * fade));
-      }
+function brickWall(c: Canvas, y0: number, y1: number) {
+  for (let y = y0; y < y1; y++) {
+    const row = Math.floor((y - y0) / 5);
+    for (let x = 0; x < c.w; x++) {
+      const mortar = (y - y0) % 5 === 4 || (x + (row % 2) * 6) % 12 === 0;
+      const speck = hash(x, y) < 0.04;
+      c.set(x, y, mortar ? P.mortar : speck ? P.brick : hash(x >> 2, row) < 0.5 ? P.wall : P.brick);
     }
   }
 }
 
-/** Pendant lamps hanging from the ceiling, each throwing a warm cone. */
-function lamps(c: Canvas, xs: number[], top: number) {
-  for (const x of xs) {
-    c.rect(x, 0, 1, top, C.steel);
-    c.rect(x - 4, top, 9, 3, C.inkSoft);
-    c.rect(x - 2, top + 3, 5, 1, C.sun);
-    for (let j = top + 4; j < c.h; j++) {
-      const spread = (j - top) * 0.42;
-      const fade = 1 - (j - top) / (c.h - top);
-      for (let i = Math.ceil(-spread); i <= spread; i++) {
-        const px = x + i;
-        if (px < 0 || px >= c.w) continue;
-        const edge = 1 - Math.abs(i) / (spread + 1);
-        c.set(px, j, mix(c.get(px, j), C.sun, 0.13 * fade * Math.min(1, edge * 1.6)));
-      }
+type Win = { x: number; y: number; w: number; h: number; towers: { x: number; w: number; h: number }[] };
+
+function windowFrame(c: Canvas, x: number, y: number, w: number, h: number): Win {
+  gradient(c, x, y, w, h, P.dusk, 7);
+  const towers: Win["towers"] = [];
+  for (let i = x + 1; i < x + w - 1; ) {
+    const tw = 3 + Math.floor(hash(i, y) * 4);
+    const th = 6 + Math.floor(hash(i, y + 1) * h * 0.42);
+    towers.push({ x: i, w: tw, h: th });
+    for (let j = 0; j < th; j++) for (let k = 0; k < tw && i + k < x + w; k++) c.set(i + k, y + h - 1 - j, P.skyline);
+    if (th > h * 0.32) c.set(i + 1, y + h - th - 1, P.skyline);
+    i += tw + (hash(i, 7) < 0.3 ? 1 : 0);
+  }
+  for (let i = x - 1; i <= x + w; i++) {
+    c.set(i, y - 1, P.frame);
+    c.set(i, y + h, P.frame);
+  }
+  for (let j = y; j < y + h; j++) {
+    c.set(x - 1, j, P.frame);
+    c.set(x + w, j, P.frame);
+    c.set(x + Math.floor(w / 2), j, P.frame);
+  }
+  for (const f of [0.34, 0.68]) for (let i = x; i < x + w; i++) c.set(i, y + Math.round(h * f), P.frame);
+  c.rect(x - 3, y + h + 1, w + 6, 2, P.sill);
+  return { x, y, w, h, towers };
+}
+
+function rack(c: Canvas, x: number, y: number, w: number, h: number) {
+  c.rect(x, y, w, h, P.rack);
+  c.rect(x + 1, y + 1, w - 2, h - 2, P.rackPanel);
+  for (let j = y + 3; j < y + h - 3; j += 5) {
+    c.rect(x + 2, j, w - 4, 3, P.rack);
+    for (let i = x + w - 8; i < x + w - 3; i += 2) c.set(i, j + 1, P.vent);
+  }
+  for (let k = 0; k < 3; k++) for (let j = 0; j < 8 + k * 3; j++) c.set(x + 3 + k * 2 + Math.round(Math.sin(j / 3) * 0.6), y - 1 - j * 0.5, P.pipe);
+}
+
+function rackLeds(c: Canvas, x: number, y: number, w: number, h: number, t: number) {
+  for (let j = y + 3; j < y + h - 3; j += 5) {
+    for (let i = x + 3; i < x + w - 10; i += 2) {
+      const seed = hash(i, j);
+      if (seed > 0.42) continue;
+      const rate = 0.6 + seed * 3;
+      if (Math.sin(t * rate + seed * 40) <= (seed < 0.05 ? 0.6 : -0.2)) continue;
+      c.set(i, j + 1, seed < 0.03 ? P.ledC : seed < 0.1 ? P.ledA : P.ledG);
     }
   }
 }
 
-function rack(c: Canvas, r: () => number, x: number, y: number, w: number, h: number) {
-  c.rect(x, y, w, h, C.ink);
-  c.rect(x + 1, y + 1, w - 2, h - 2, C.inkSoft);
-  for (let j = y + 3; j < y + h - 3; j += 4) {
-    c.rect(x + 2, j, w - 4, 2, C.ink);
-    for (let i = x + 3; i < x + w - 3; i += 3) {
-      const roll = r();
-      if (roll < 0.35) c.set(i, j, roll < 0.08 ? C.coral : roll < 0.16 ? C.amber : C.green);
+function lampLight(c: Canvas, x: number, top: number) {
+  c.rect(x, 0, 1, top, P.metal);
+  c.rect(x - 4, top, 9, 2, P.pipe);
+  c.rect(x - 3, top + 2, 7, 1, P.pipeHi);
+  c.rect(x - 1, top + 3, 3, 1, P.lamp);
+  for (let j = top + 4; j < c.h; j++) {
+    const spread = (j - top) * 0.45;
+    const fade = 1 - (j - top) / (c.h - top);
+    for (let i = Math.ceil(-spread); i <= spread; i++) {
+      const edge = 1 - Math.abs(i) / (spread + 1);
+      c.blend(x + i, j, P.lamp, 0.075 * fade * Math.min(1, edge * 1.8));
     }
   }
 }
 
-/** A small robot agent: cream body, dark screen face, green eyes, antenna. */
-function robot(c: Canvas, x: number, y: number, opts: { carrying?: "crate" | "bad"; flip?: boolean; eye?: RGB } = {}) {
-  const eye = opts.eye ?? C.eye;
-  // antenna
-  c.set(x + 5, y, C.coral);
-  c.rect(x + 5, y + 1, 1, 2, C.steel);
-  // head
-  c.rect(x + 1, y + 3, 10, 7, C.cream);
-  c.rect(x + 1, y + 9, 10, 1, C.creamShade);
-  c.rect(x + 2, y + 4, 8, 4, C.screen);
-  c.set(x + (opts.flip ? 4 : 4), y + 5, eye);
-  c.set(x + (opts.flip ? 7 : 7), y + 5, eye);
-  // body
-  c.rect(x + 2, y + 10, 8, 6, C.cream);
-  c.rect(x + 2, y + 15, 8, 1, C.creamShade);
-  c.set(x + 5, y + 12, C.coral);
-  // legs
-  c.rect(x + 3, y + 16, 2, 3, C.steel);
-  c.rect(x + 7, y + 16, 2, 3, C.steel);
-  if (opts.carrying) {
-    const bx = opts.flip ? x - 6 : x + 9;
-    const bad = opts.carrying === "bad";
-    c.rect(bx, y + 9, 7, 6, bad ? C.coral : C.crate);
-    c.rect(bx, y + 14, 7, 1, bad ? C.coralDark : C.crateDark);
-    c.rect(bx + 1, y + 11, 5, 1, bad ? C.cream : C.crateDark);
+function floorBoards(c: Canvas, y0: number) {
+  for (let y = y0; y < c.h; y++) {
+    for (let x = 0; x < c.w; x++) {
+      const seam = (y - y0) % 7 === 0 || (x + Math.floor((y - y0) / 7) * 17) % 38 === 0;
+      c.set(x, y, seam ? P.plank : hash(x >> 3, y) < 0.08 ? P.grain : P.floor);
+    }
   }
 }
 
-function crate(c: Canvas, x: number, y: number, bad = false) {
-  c.rect(x, y, 9, 7, bad ? C.coral : C.crate);
-  c.rect(x, y + 6, 9, 1, bad ? C.coralDark : C.crateDark);
-  c.rect(x, y, 9, 1, bad ? hex("#ff7a68") : hex("#dcae7e"));
-  c.rect(x + 2, y + 3, 5, 1, bad ? C.cream : C.crateDark);
-}
-
-function conveyor(c: Canvas, y: number, x0 = 0, x1 = c.w) {
-  c.rect(x0, y, x1 - x0, 3, C.ink);
-  for (let x = x0; x < x1; x++) if (x % 4 === 0) c.set(x, y + 1, C.steelLight);
-  for (let x = x0 + 6; x < x1; x += 18) {
-    c.rect(x, y + 3, 2, 8, C.steel);
-    c.rect(x - 1, y + 10, 4, 1, C.ink);
+function crateSprite(c: Canvas, x: number, y: number, bad = false) {
+  const [hi, mid, lo] = bad ? [P.badHi, P.bad, P.badLo] : [P.crateHi, P.crate, P.crateLo];
+  c.rect(x, y, 11, 8, mid);
+  c.rect(x, y, 11, 1, hi);
+  c.rect(x, y + 7, 11, 1, lo);
+  c.rect(x, y, 1, 8, lo);
+  c.rect(x + 10, y, 1, 8, lo);
+  c.rect(x + 3, y + 3, 5, 1, bad ? P.bot : lo);
+  if (!bad) {
+    c.set(x + 2, y + 1, lo);
+    c.set(x + 8, y + 6, lo);
   }
 }
 
-const CLAW_ROWS = ["......XXXX......", ".......XX.......", ".....XXXXXX.....", "....XXooooXX....", ".....XXXXXX.....",
+/** Robot agent; `step` alternates the legs, `blink` closes the eyes. */
+function robot(c: Canvas, x: number, y: number, o: { step?: number; carry?: boolean; flip?: boolean; eye?: RGB; blink?: boolean; armUp?: boolean } = {}) {
+  const eye = o.eye ?? P.eye;
+  c.set(x + 6, y, P.clawAccent);
+  c.rect(x + 6, y + 1, 1, 2, P.metal);
+  c.rect(x + 2, y + 3, 10, 8, P.bot);
+  c.rect(x + 2, y + 10, 10, 1, P.botLo);
+  c.rect(x + 3, y + 4, 8, 5, P.screen);
+  if (!o.blink) {
+    c.set(x + 5, y + 6, eye);
+    c.set(x + 8, y + 6, eye);
+  } else {
+    c.rect(x + 5, y + 6, 4, 1, hex("#2a3a36"));
+  }
+  c.rect(x + 3, y + 11, 8, 7, P.bot);
+  c.rect(x + 3, y + 17, 8, 1, P.botLo);
+  c.set(x + 7, y + 13, P.clawAccent);
+  const s = o.step ?? 0;
+  c.rect(x + 4, y + 18, 2, s ? 3 : 2, P.metal);
+  c.rect(x + 8, y + 18, 2, s ? 2 : 3, P.metal);
+  if (o.armUp) c.rect(x + (o.flip ? 1 : 11), y + 10, 2, 2, P.botLo);
+  if (o.carry) crateSprite(c, o.flip ? x - 9 : x + 10, y + 9);
+}
+
+const CLAW_OPEN = ["......XXXX......", ".......XX.......", ".....XXXXXX.....", "....XXooooXX....", ".....XXXXXX.....",
   "....XX.XX.XX....", "...XX......XX...", "..XX........XX..", "..X..........X..", "..XX........XX..", "...X........X..."];
+const CLAW_SHUT = ["......XXXX......", ".......XX.......", ".....XXXXXX.....", "....XXooooXX....", ".....XXXXXX.....",
+  ".....XX..XX.....", "....XX....XX....", "....X......X....", "....XX....XX....", ".....XX..XX.....", "......X..X......"];
 
-function claw(c: Canvas, x: number, y: number, railY: number, scale = 1) {
-  // trolley on the rail
-  c.rect(x + 4 * scale, railY - 2, 8 * scale, 4, C.steel);
-  c.rect(x + 7 * scale, railY + 2, 2 * scale, y - railY - 2, C.inkSoft);
-  CLAW_ROWS.forEach((row, j) => [...row].forEach((ch, i) => {
-    if (ch !== ".") c.rect(x + i * scale, y + j * scale, scale, scale, ch === "o" ? C.coral : C.ink);
+function claw(c: Canvas, x: number, y: number, railY: number, shut: boolean) {
+  c.rect(x + 3, railY - 1, 10, 4, P.metal);
+  c.rect(x + 4, railY, 8, 1, P.pipeHi);
+  c.rect(x + 7, railY + 3, 2, Math.max(0, y - railY - 3), P.pipe);
+  (shut ? CLAW_SHUT : CLAW_OPEN).forEach((row, j) => [...row].forEach((ch, i) => {
+    if (ch !== ".") c.set(x + i, y + j, ch === "o" ? P.clawAccent : P.claw);
   }));
 }
 
 /* ---------------------------------------------------------------- scenes */
 
-function paintHero(c: Canvas) {
-  const r = rng(11);
-  // back wall with a faint plaster texture
-  for (let y = 0; y < c.h; y++) for (let x = 0; x < c.w; x++) {
-    c.set(x, y, y < 18 ? C.wallShade : dither(x, y) < 0.06 ? C.wallShade : C.wall);
-  }
-  // ceiling beams and the gantry rail
-  c.rect(0, 0, c.w, 6, C.beam);
-  for (let x = 0; x < c.w; x += 40) c.rect(x, 0, 3, 18, C.beam);
-  const railY = 24;
-  c.rect(0, railY, c.w, 3, C.ink);
-  for (let x = 2; x < c.w; x += 12) c.set(x, railY + 1, C.steelLight);
-  // tall arched windows
-  const wins: [number, number, number, number][] = [[24, 40, 46, 86], [112, 40, 46, 86], [200, 40, 46, 86], [288, 40, 46, 86]];
-  wins.forEach(([x, y, w, h]) => windowPane(c, x, y, w, h));
-  // floor
-  for (let y = 168; y < c.h; y++) for (let x = 0; x < c.w; x++) {
-    c.set(x, y, (y - 168) % 9 === 0 || (x + (y >> 3) * 5) % 26 === 0 ? C.floorDark : C.floor);
-  }
-  c.rect(0, 166, c.w, 2, C.wallDeep);
-  // server racks between the windows
-  [[74, 92, 30, 76], [162, 104, 30, 64], [250, 92, 30, 76]].forEach(([x, y, w, h]) => rack(c, r, x, y, w, h));
-  lightShafts(c, wins);
-  lamps(c, [90, 178, 266], 32);
-  // the line: conveyor, crates, robots
-  conveyor(c, 150);
-  [14, 58, 130, 176, 218].forEach((x) => crate(c, x, 143));
-  crate(c, 306, 143, true); // the one that shouldn't ship
-  robot(c, 34, 147, { carrying: "crate" });
-  robot(c, 96, 147);
-  robot(c, 152, 147, { flip: true });
-  robot(c, 264, 147, { carrying: "crate", flip: true });
-  robot(c, 332, 147, { eye: C.amber });
-  // Klaw on its gantry, silhouetted against the window, over the coral crate
-  claw(c, 294, 116, railY, 2);
-}
-
-function paintMonitors(c: Canvas) {
-  const r = rng(23);
-  gradient(c, 0, 0, c.w, c.h, ["#141220", "#1e1a2c", "#2a2236"], 5);
-  // a wall of monitors in a console room
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 6; col++) {
-      const x = 14 + col * 50;
-      const y = 14 + row * 40;
-      c.rect(x, y, 44, 32, C.ink);
-      c.rect(x + 2, y + 2, 40, 26, C.screen);
-      const kind = (row * 6 + col) % 4;
-      for (let i = 0; i < 36; i++) {
-        if (kind === 0) c.set(x + 4 + i, y + 22 - Math.round(Math.abs(Math.sin(i / 4 + row)) * 12), C.green);
-        if (kind === 1 && i % 4 === 0) c.rect(x + 4 + i, y + 26 - Math.floor(r() * 18), 3, 1 + Math.floor(r() * 18), C.amber);
-        if (kind === 2 && i < 24) c.rect(x + 4, y + 5 + Math.floor(i / 4) * 3, 8 + Math.floor(r() * 24), 1, i % 7 === 3 ? C.coral : C.steelLight);
-      }
-      if (kind === 3) claw(c, x + 14, y + 8, y + 3, 1);
-      c.rect(x + 18, y + 32, 8, 3, C.ink);
-    }
-  }
-  c.rect(0, c.h - 18, c.w, 18, C.wallDeep);
-  robot(c, 60, c.h - 36);
-  robot(c, 230, c.h - 36, { flip: true, eye: C.amber });
-}
-
-function paintBench(c: Canvas, seed: number, palette: string[], subject: "terminal" | "robots" | "brain") {
-  const r = rng(seed);
-  gradient(c, 0, 0, c.w, c.h, palette, 5);
-  c.rect(0, c.h - 20, c.w, 20, C.floor);
-  c.rect(0, c.h - 21, c.w, 2, C.beam);
-  if (subject === "terminal") {
-    c.rect(c.w / 2 - 30, c.h - 64, 60, 42, C.ink);
-    c.rect(c.w / 2 - 27, c.h - 61, 54, 34, C.screen);
-    for (let i = 0; i < 5; i++) c.rect(c.w / 2 - 23, c.h - 56 + i * 6, 10 + Math.floor(r() * 30), 2, i === 0 ? C.coral : C.green);
-    c.rect(c.w / 2 - 6, c.h - 22, 12, 2, C.ink);
-  } else if (subject === "robots") {
-    for (let i = 0; i < 4; i++) robot(c, 18 + i * 34, c.h - 40, { carrying: i === 2 ? "bad" : i % 2 ? "crate" : undefined });
-    claw(c, 18 + 2 * 34 + 2, 10, 4, 1);
-  } else {
-    rack(c, r, 20, c.h - 76, 34, 56);
-    rack(c, r, c.w - 54, c.h - 76, 34, 56);
-    // a glowing chip in the middle
-    c.rect(c.w / 2 - 14, c.h - 58, 28, 28, C.ink);
-    c.rect(c.w / 2 - 10, c.h - 54, 20, 20, C.coral);
-    for (let i = 0; i < 6; i++) {
-      c.rect(c.w / 2 - 12 + i * 5, c.h - 62, 2, 4, C.steelLight);
-      c.rect(c.w / 2 - 12 + i * 5, c.h - 30, 2, 4, C.steelLight);
-    }
-  }
-}
-
-function paintLine(c: Canvas) {
-  gradient(c, 0, 0, c.w, c.h, ["#171a42", "#33296a", "#7d4379", "#e2684f"], 5);
-  const r = rng(77);
-  for (let i = 0; i < c.w; i += 4 + Math.floor(r() * 4)) {
-    const th = 10 + Math.floor(r() * 40);
-    c.rect(i, c.h - 24 - th, 4, th, hex("#141533"));
-    for (let j = c.h - 24 - th + 2; j < c.h - 26; j += 4) if (r() < 0.3) c.set(i + 1, j, hex("#ffc779"));
-  }
-  c.rect(0, c.h - 24, c.w, 24, C.floorDark);
-  conveyor(c, c.h - 30);
-  for (let x = 8; x < c.w; x += 30) {
-    if ((x / 30) % 3 < 1) robot(c, x, c.h - 49, { carrying: "crate" });
-    else crate(c, x, c.h - 37, x % 7 === 0);
-  }
-}
-
-function paintRobotSprite(c: Canvas) {
-  robot(c, 2, 4, { carrying: "crate" });
-}
-
-function paintClawSprite(c: Canvas) {
-  claw(c, 0, 18, 2, 1);
-  crate(c, 3, 31, true);
-}
-
-/* ------------------------------------------------------------- component */
-
-export type SceneName = "hero" | "monitors" | "line" | "robot" | "claw" | "terminal" | "robots" | "brain";
-
-const SIZES: Record<SceneName, [number, number]> = {
-  hero: [360, 220],
-  monitors: [320, 180],
-  line: [480, 90],
-  robot: [22, 26],
-  claw: [16, 40],
-  terminal: [160, 96],
-  robots: [160, 96],
-  brain: [160, 96],
+type SceneDef = {
+  w: number;
+  h: number;
+  base: (c: Canvas) => unknown;
+  frame?: (c: Canvas, t: number, state: unknown) => void;
 };
 
-function paint(name: SceneName, c: Canvas) {
-  switch (name) {
-    case "hero":
-      return paintHero(c);
-    case "monitors":
-      return paintMonitors(c);
-    case "line":
-      return paintLine(c);
-    case "robot":
-      return paintRobotSprite(c);
-    case "claw":
-      return paintClawSprite(c);
-    case "terminal":
-      return paintBench(c, 3, ["#1d1626", "#3a2436"], "terminal");
-    case "robots":
-      return paintBench(c, 5, ["#121a36", "#233160"], "robots");
-    case "brain":
-      return paintBench(c, 9, ["#1e1430", "#3a2452"], "brain");
-  }
+const smooth = (k: number) => k * k * (3 - 2 * k);
+
+const HERO: SceneDef = {
+  w: 480,
+  h: 300,
+  base(c) {
+    c.rect(0, 0, c.w, c.h, P.wall);
+    brickWall(c, 22, 226);
+    c.rect(0, 0, c.w, 18, P.ceiling);
+    for (const py of [6, 11]) {
+      c.rect(0, py, c.w, 3, P.pipe);
+      c.rect(0, py, c.w, 1, P.pipeHi);
+      for (let x = 20 + py * 3; x < c.w; x += 64) c.rect(x, py - 1, 3, 5, P.metal);
+    }
+    const railY = 30;
+    c.rect(0, railY, c.w, 3, P.ink);
+    for (let x = 4; x < c.w; x += 16) c.rect(x, railY - 6, 1, 6, P.metal);
+    const wins = [[34, 52, 60, 116], [150, 52, 60, 116], [270, 52, 60, 116], [386, 52, 60, 116]].map(([x, y, w, h]) => windowFrame(c, x, y, w, h));
+    for (const win of wins) for (let j = win.y + win.h + 3; j < 226; j++) {
+      const fade = 1 - (j - win.y - win.h) / 60;
+      for (let i = win.x; i < win.x + win.w; i++) c.blend(i + (j - win.y - win.h) * 0.4, j, hex("#b2614b"), 0.05 * Math.max(0, fade));
+    }
+    const racks = [[100, 132, 40, 94], [216, 150, 40, 76], [336, 132, 40, 94]];
+    racks.forEach(([x, y, w, h]) => rack(c, x, y, w, h));
+    c.rect(4, 206, 26, 3, P.sill);
+    c.rect(6, 209, 2, 17, P.leg);
+    c.rect(26, 209, 2, 17, P.leg);
+    c.rect(9, 192, 16, 12, P.ink);
+    c.rect(10, 193, 14, 10, P.screen);
+    c.rect(15, 204, 4, 2, P.ink);
+    c.rect(0, 226, c.w, 2, P.mortar);
+    floorBoards(c, 228);
+    c.rect(0, 214, c.w, 3, P.belt);
+    for (let x = 10; x < c.w; x += 24) {
+      c.rect(x, 217, 2, 11, P.leg);
+      c.rect(x - 1, 227, 4, 1, P.ink);
+    }
+    c.rect(448, 206, 26, 20, P.bin);
+    c.rect(448, 206, 26, 2, P.pipeHi);
+    c.rect(452, 212, 18, 1, P.badLo);
+    [120, 236, 356].forEach((x) => lampLight(c, x, 40));
+    return { wins, racks, railY };
+  },
+  frame(c, t, state) {
+    const { wins, racks, railY } = state as { wins: Win[]; racks: number[][]; railY: number };
+    for (const w of wins) for (const tw of w.towers) for (let j = 2; j < tw.h - 1; j += 3) {
+      const s = hash(tw.x, j);
+      if (s < 0.22 && Math.sin(t * (0.3 + s * 2) + s * 50) > -0.1) c.set(tw.x + 1, w.y + w.h - 1 - j, s < 0.04 ? P.ledC : P.lit);
+    }
+    racks.forEach(([x, y, w, h]) => rackLeds(c, x, y, w, h, t));
+    const typed = Math.floor((t * 6) % 12);
+    c.rect(11, 195, Math.min(10, typed), 1, P.ledG);
+    if (Math.floor(t * 2) % 2) c.rect(11 + Math.min(10, typed), 198, 2, 1, P.ledG);
+    const speed = 14;
+    for (let x = 0; x < c.w; x += 6) c.set((x + t * speed) % c.w, 215, P.roller);
+    // crates on the belt; once a loop the coral crate goes to the claw
+    const loop = c.w + 40;
+    const clawX = 400;
+    const period = loop / speed;
+    const phase = t % period;
+    const badX0 = -20;
+    const arrive = (clawX + 3 - badX0) / speed;
+    const badX = badX0 + phase * speed;
+    for (let k = 0; k < 6; k++) {
+      const x = ((k * 82 + t * speed) % loop) - 30;
+      if (Math.abs(x - badX) < 16) continue;
+      crateSprite(c, x, 206);
+    }
+    let clawY = 60;
+    let shut = false;
+    let carried: [number, number] | null = null;
+    let trolleyX = clawX;
+    const grabY = 192;
+    if (phase < arrive - 1.6) {
+      crateSprite(c, badX, 206, true);
+    } else if (phase < arrive) {
+      clawY = 60 + (grabY - 60) * smooth((phase - (arrive - 1.6)) / 1.6);
+      crateSprite(c, badX, 206, true);
+    } else if (phase < arrive + 0.35) {
+      clawY = grabY;
+      shut = true;
+      carried = [clawX + 3, 206];
+    } else if (phase < arrive + 1.6) {
+      clawY = grabY - (grabY - 70) * smooth((phase - arrive - 0.35) / 1.25);
+      shut = true;
+      carried = [clawX + 3, clawY + 14];
+    } else if (phase < arrive + 2.6) {
+      trolleyX = clawX + 46 * smooth((phase - arrive - 1.6) / 1.0);
+      clawY = 70;
+      shut = true;
+      carried = [trolleyX + 3, 84];
+    } else if (phase < arrive + 3.2) {
+      trolleyX = clawX + 46;
+      clawY = 70;
+      const k = (phase - arrive - 2.6) / 0.6;
+      carried = [trolleyX + 3, 84 + 120 * k * k];
+    } else if (phase < arrive + 4.4) {
+      const k = (phase - arrive - 3.2) / 1.2;
+      trolleyX = clawX + 46 - 46 * smooth(k);
+      clawY = 70 - 10 * k;
+    }
+    if (carried && carried[1] < 216) crateSprite(c, carried[0], carried[1], true);
+    claw(c, trolleyX, Math.round(clawY), railY, shut);
+    const bots = [
+      { x0: 0, v: 9, carry: true },
+      { x0: 160, v: 7, carry: false },
+      { x0: 300, v: 10, carry: true },
+    ];
+    bots.forEach((b, i) => {
+      const x = ((b.x0 + t * b.v) % (c.w + 40)) - 30;
+      robot(c, x, 240 + i * 14, { step: Math.floor(t * 4 + i) % 2, carry: b.carry, eye: i === 2 ? P.eyeA : P.eye, blink: Math.floor(t * 0.7 + i * 3) % 9 === 0 });
+    });
+    for (let k = 0; k < 26; k++) {
+      const lx = [120, 236, 356][k % 3];
+      const life = (t * 0.12 + hash(k, 3)) % 1;
+      const y = 60 + life * 160;
+      const x = lx + Math.sin(t * 0.5 + k) * (y - 44) * 0.3;
+      c.blend(x, y, P.lamp, 0.35 * Math.sin(life * Math.PI));
+    }
+  },
+};
+
+const MONITORS: SceneDef = {
+  w: 480,
+  h: 270,
+  base(c) {
+    c.rect(0, 0, c.w, c.h, P.wall);
+    brickWall(c, 0, 210);
+    const screens: [number, number][] = [];
+    for (let row = 0; row < 2; row++) for (let col = 0; col < 4; col++) {
+      const x = 52 + col * 98;
+      const y = 26 + row * 76;
+      c.rect(x - 2, y - 2, 88, 62, P.ink);
+      c.rect(x, y, 84, 58, P.screen);
+      c.rect(x + 38, y + 60, 8, 6, P.ink);
+      screens.push([x, y]);
+    }
+    c.rect(0, 210, c.w, 2, P.mortar);
+    floorBoards(c, 212);
+    c.rect(290, 226, 176, 4, P.sill);
+    c.rect(296, 230, 3, 30, P.leg);
+    c.rect(457, 230, 3, 30, P.leg);
+    c.rect(360, 220, 30, 6, P.ink);
+    for (let i = 0; i < 6; i++) c.rect(363 + i * 4, 222, 3, 2, P.pipeHi);
+    lampLight(c, 380, 0);
+    return { screens };
+  },
+  frame(c, t, state) {
+    const { screens } = state as { screens: [number, number][] };
+    screens.forEach(([x, y], i) => {
+      const kind = i % 4;
+      if (kind === 0) {
+        for (let k = 0; k < 9; k++) {
+          const line = Math.floor(t * 2) + k;
+          const w = 20 + Math.floor(hash(line, i) * 52);
+          c.rect(x + 5, y + 5 + k * 6, w, 1, hash(line, 9) < 0.08 ? P.ledC : hex("#5a6b66"));
+        }
+      } else if (kind === 1) {
+        for (let k = 0; k < 74; k++) {
+          const v = Math.sin((k + t * 8) / 7 + i) * 0.5 + Math.sin((k + t * 5) / 3) * 0.2;
+          c.set(x + 5 + k, y + 30 - Math.round(v * 16), mix(P.screen, P.ledG, 0.75));
+        }
+      } else if (kind === 2) {
+        for (let k = 0; k < 10; k++) {
+          const h = 4 + Math.round((Math.sin(t * 1.4 + k * 0.9 + i) * 0.5 + 0.5) * 34);
+          c.rect(x + 6 + k * 7, y + 50 - h, 4, h, mix(P.screen, k === 6 ? P.ledC : P.ledA, 0.55));
+        }
+      } else {
+        c.rect(x + 34, y + 8, 44, 7, hex("#3a3442"));
+        const reply = Math.min(60, Math.floor((t * 14) % 90));
+        for (let k = 0; k < 4; k++) c.rect(x + 6, y + 24 + k * 6, Math.max(0, Math.min(60, reply - k * 15)), 2, hex("#7c8f88"));
+        if (Math.floor(t * 2) % 2) c.rect(x + 6 + Math.min(60, reply % 60), y + 24 + Math.min(3, Math.floor(reply / 15)) * 6, 2, 3, P.ledG);
+      }
+      for (let j = y + 60; j < y + 72; j++) for (let k = x; k < x + 84; k++) c.blend(k, j, hex("#3fbf8f"), 0.015);
+    });
+    robot(c, 366, 198, { armUp: Math.floor(t * 6) % 2 === 0, blink: Math.floor(t * 0.6) % 7 === 0 });
+  },
+};
+
+const LINE: SceneDef = {
+  w: 640,
+  h: 120,
+  base(c) {
+    gradient(c, 0, 0, c.w, 84, P.dusk, 7);
+    for (let i = 0; i < c.w; ) {
+      const tw = 4 + Math.floor(hash(i, 1) * 6);
+      const th = 12 + Math.floor(hash(i, 2) * 46);
+      c.rect(i, 84 - th, tw, th, P.skyline);
+      i += tw + (hash(i, 3) < 0.3 ? 1 : 0);
+    }
+    c.rect(0, 84, c.w, 36, P.floor);
+    floorBoards(c, 90);
+    c.rect(0, 84, c.w, 3, P.belt);
+    for (let x = 8; x < c.w; x += 24) c.rect(x, 87, 2, 6, P.leg);
+    return null;
+  },
+  frame(c, t) {
+    for (let x = 0; x < c.w; x += 6) c.set((x + t * 16) % c.w, 85, P.roller);
+    for (let k = 0; k < 8; k++) {
+      const x = ((k * 86 + t * 16) % (c.w + 40)) - 30;
+      crateSprite(c, x, 76, k === 5);
+    }
+    for (let k = 0; k < 4; k++) {
+      const x = ((k * 170 + t * 11) % (c.w + 40)) - 30;
+      robot(c, x, 94, { step: Math.floor(t * 4 + k) % 2, carry: k % 2 === 0 });
+    }
+    for (let i = 0; i < c.w; i += 5) {
+      const s = hash(i, 11);
+      if (s < 0.2 && Math.sin(t * (0.4 + s) + s * 30) > 0.2) c.set(i + 1, 84 - 6 - Math.floor(s * 30), P.lit);
+    }
+  },
+};
+
+function bench(stops: string[], subject: "terminal" | "robots" | "brain"): SceneDef {
+  return {
+    w: 200,
+    h: 120,
+    base(c) {
+      gradient(c, 0, 0, c.w, c.h, stops, 6);
+      c.rect(0, c.h - 24, c.w, 24, P.floor);
+      floorBoards(c, c.h - 22);
+      c.rect(0, c.h - 25, c.w, 2, P.mortar);
+      if (subject === "terminal") {
+        c.rect(c.w / 2 - 36, c.h - 76, 72, 48, P.ink);
+        c.rect(c.w / 2 - 33, c.h - 73, 66, 40, P.screen);
+        c.rect(c.w / 2 - 6, c.h - 28, 12, 4, P.ink);
+      } else if (subject === "brain") {
+        rack(c, 18, c.h - 90, 40, 66);
+        rack(c, c.w - 58, c.h - 90, 40, 66);
+        c.rect(c.w / 2 - 18, c.h - 70, 36, 36, P.ink);
+        for (let i = 0; i < 7; i++) {
+          c.rect(c.w / 2 - 15 + i * 5, c.h - 75, 2, 5, P.metal);
+          c.rect(c.w / 2 - 15 + i * 5, c.h - 34, 2, 5, P.metal);
+        }
+      } else {
+        c.rect(0, c.h - 34, c.w, 3, P.belt);
+      }
+      return null;
+    },
+    frame(c, t) {
+      if (subject === "terminal") {
+        const shown = Math.floor((t * 10) % 70);
+        const lines: [number, RGB][] = [[18, P.clawAccent], [40, P.ledG], [30, P.ledG], [46, hex("#5a6b66")], [24, P.ledG]];
+        let left = shown;
+        lines.forEach(([w, col], i) => {
+          c.rect(c.w / 2 - 28, c.h - 68 + i * 7, Math.max(0, Math.min(w, left)), 2, col);
+          left -= w;
+        });
+        if (Math.floor(t * 2) % 2) c.rect(c.w / 2 - 28, c.h - 37, 3, 2, P.ledG);
+      } else if (subject === "brain") {
+        rackLeds(c, 18, c.h - 90, 40, 66, t);
+        rackLeds(c, c.w - 58, c.h - 90, 40, 66, t);
+        const glow = 0.55 + 0.45 * Math.sin(t * 2);
+        c.rect(c.w / 2 - 13, c.h - 65, 26, 26, mix(P.badLo, P.bad, glow));
+        c.rect(c.w / 2 - 7, c.h - 59, 14, 14, mix(P.bad, P.badHi, glow));
+      } else {
+        for (let x = 0; x < c.w; x += 6) c.set((x + t * 12) % c.w, c.h - 33, P.roller);
+        for (let k = 0; k < 4; k++) {
+          const x = ((k * 56 + t * 12) % (c.w + 30)) - 20;
+          robot(c, x, c.h - 55, { step: Math.floor(t * 4 + k) % 2, carry: k !== 1 });
+        }
+        claw(c, 120, 18 + Math.round(Math.sin(t) * 6), 4, Math.sin(t) > 0.6);
+      }
+    },
+  };
 }
+
+const ROBOT: SceneDef = {
+  w: 26,
+  h: 26,
+  base: () => null,
+  frame(c, t) {
+    robot(c, 2, 2 + (Math.floor(t * 2) % 2), { carry: true, blink: Math.floor(t * 0.8) % 6 === 0 });
+  },
+};
+
+const CLAW: SceneDef = {
+  w: 16,
+  h: 44,
+  base: () => null,
+  frame(c, t) {
+    const k = (Math.sin(t * 1.2) + 1) / 2;
+    const y = 8 + Math.round(k * 16);
+    claw(c, 0, y, 1, k > 0.85);
+    if (k > 0.85) crateSprite(c, 2, y + 12, true);
+  },
+};
+
+const SCENES = {
+  hero: HERO,
+  monitors: MONITORS,
+  line: LINE,
+  robot: ROBOT,
+  claw: CLAW,
+  terminal: bench(["#1b1622", "#2b1f2c"], "terminal"),
+  robots: bench(["#12162c", "#1d2445"], "robots"),
+  brain: bench(["#1a1328", "#2a1d3c"], "brain"),
+} satisfies Record<string, SceneDef>;
+
+export type SceneName = keyof typeof SCENES;
+
+/* ------------------------------------------------------------- component */
 
 export function PixelScene({
   name,
@@ -389,17 +579,42 @@ export function PixelScene({
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    const [w, h] = SIZES[name];
-    const c = new Canvas(w, h);
-    paint(name, c);
-    el.width = w;
-    el.height = h;
-    const ctx = el.getContext("2d");
-    if (!ctx) return;
-    const img = ctx.createImageData(w, h);
-    img.data.set(c.data);
-    ctx.putImageData(img, 0, 0);
+    const ctx = el?.getContext("2d");
+    if (!el || !ctx) return;
+    const def: SceneDef = SCENES[name];
+    const bg = new Canvas(def.w, def.h);
+    const state = def.base(bg);
+    const frame = new Canvas(def.w, def.h);
+    const img = ctx.createImageData(def.w, def.h);
+    el.width = def.w;
+    el.height = def.h;
+    const draw = (t: number) => {
+      frame.data.set(bg.data);
+      def.frame?.(frame, t, state);
+      img.data.set(frame.data);
+      ctx.putImageData(img, 0, 0);
+    };
+    draw(0);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !def.frame) return;
+    let visible = false;
+    let raf = 0;
+    let last = 0;
+    const start = performance.now();
+    const loop = (now: number) => {
+      raf = requestAnimationFrame(loop);
+      if (!visible || now - last < 80) return; // about 12 frames a second
+      last = now;
+      draw((now - start) / 1000);
+    };
+    const io = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+    }, { threshold: 0.01 });
+    io.observe(el);
+    raf = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(raf);
+      io.disconnect();
+    };
   }, [name]);
   return (
     <canvas
