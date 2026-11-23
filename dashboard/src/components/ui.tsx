@@ -87,9 +87,9 @@ export function Stat({
     success: "text-[var(--success)]",
   }[tone];
   return (
-    <div className="rounded-lg border border-line bg-panel px-4 py-3">
+    <div className="glass rise-in px-5 py-4">
       <div className="text-[11px] uppercase tracking-wide text-faint">{label}</div>
-      <div className={cn("mt-1 text-2xl font-semibold tabular-nums", toneClass)}>
+      <div className={cn("mt-1.5 text-[28px] font-extrabold tracking-tight tabular-nums", toneClass)}>
         {hosted ? value : <NotHosted compact />}
       </div>
       {hint && hosted ? <div className="mt-0.5 text-xs text-muted">{hint}</div> : null}
@@ -114,17 +114,17 @@ export function Button({
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const variants: Record<ButtonVariant, string> = {
     default:
-      "border border-line-strong bg-panel-raised text-ink hover:border-[#3a3a44] hover:bg-[#1a1a20]",
+      "press border border-white/80 bg-white/60 text-ink shadow-[0_6px_18px_-10px_rgba(26,31,64,0.35)] backdrop-blur-md hover:-translate-y-px hover:bg-white/85",
     primary:
-      "border border-transparent bg-[var(--accent)] text-white hover:bg-[var(--accent-soft)]",
+      "press ripple-light border border-white/30 bg-[image:var(--gradient)] text-white shadow-[0_10px_26px_-10px_rgba(255,90,79,0.7)] hover:-translate-y-px hover:shadow-[0_14px_32px_-12px_rgba(61,91,255,0.6)]",
     danger:
-      "border border-[#5b2224] bg-[#2a1416] text-[#fca5a5] hover:border-[#7f2d31] hover:bg-[#351a1c]",
-    ghost: "border border-transparent text-muted hover:bg-panel-raised hover:text-ink",
+      "press border border-[rgba(229,57,74,0.25)] bg-[rgba(229,57,74,0.1)] text-[var(--failed)] hover:-translate-y-px hover:bg-[rgba(229,57,74,0.16)]",
+    ghost: "press border border-transparent text-muted hover:bg-white/60 hover:text-ink",
   };
   return (
     <button
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md font-medium transition-colors",
+        "relative inline-flex items-center gap-1.5 overflow-hidden rounded-full font-semibold transition-all duration-200",
         "disabled:cursor-not-allowed disabled:opacity-40",
         size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm",
         variants[variant],
@@ -144,7 +144,7 @@ export function Input({
   return (
     <input
       className={cn(
-        "w-full rounded-md border border-line-strong bg-[#0b0b0e] px-3 py-1.5 text-sm text-ink",
+        "w-full rounded-xl border border-white/80 bg-white/70 px-3 py-2 text-sm text-ink shadow-inner outline-none backdrop-blur-md transition focus:border-[var(--electric)] focus:ring-4 focus:ring-[rgba(61,91,255,0.15)]",
         "placeholder:text-faint focus:border-[var(--accent)] focus:outline-none",
         className,
       )}
@@ -161,7 +161,7 @@ export function Select({
   return (
     <select
       className={cn(
-        "rounded-md border border-line-strong bg-[#0b0b0e] px-2.5 py-1.5 text-sm text-ink",
+        "rounded-xl border border-white/80 bg-white/70 px-2.5 py-2 text-sm text-ink backdrop-blur-md outline-none focus:border-[var(--electric)]",
         "focus:border-[var(--accent)] focus:outline-none",
         className,
       )}

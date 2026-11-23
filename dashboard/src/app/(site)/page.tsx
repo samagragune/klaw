@@ -117,7 +117,7 @@ export default function LandingPage() {
             <div className="bracket mb-7">The supervisor for AI agents</div>
             <h1 className="display text-[44px] sm:text-[76px] lg:text-[88px]">
               <span className="display-bold block">Your agents work.</span>
-              <span className="display-light block">You stay in charge.</span>
+              <span className="display-bold text-gradient block pb-2">You stay in charge.</span>
             </h1>
             <p className="mt-7 max-w-xl text-[18px] leading-relaxed text-muted">
               Run a supervisor on your own machine, connect Claude Code and OpenAI Agents SDK
@@ -155,7 +155,7 @@ export default function LandingPage() {
             ["Python agents", "SDK checkpoints"],
             ["Your platform", "open event protocol"],
           ].map(([name, how]) => (
-            <div key={name} className="border-r border-line px-5 py-7 transition-colors last:border-r-0 hover:bg-white/[0.03] md:px-8">
+            <div key={name} className="border-r border-line px-5 py-7 transition-colors last:border-r-0 hover:bg-white/50 md:px-8">
               <div className="display display-bold text-[22px]">{name}</div>
               <div className="label-mono mt-1 text-faint">{how}</div>
             </div>

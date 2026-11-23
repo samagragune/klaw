@@ -155,7 +155,7 @@ export function Section({
         </div>
         <h2 className="display text-[36px] sm:text-[44px] md:text-[64px]">
           <span className="display-light block">{light}</span>
-          <span className="display-bold block">{bold}</span>
+          <span className="display-bold text-gradient block pb-1">{bold}</span>
         </h2>
         {intro ? <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-muted">{intro}</p> : null}
         {children ? <div className="mt-14">{children}</div> : null}

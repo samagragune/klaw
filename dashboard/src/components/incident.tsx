@@ -63,7 +63,7 @@ function Evidence({ evidence }: { evidence: Record<string, unknown> }) {
           <div className="mb-1 text-[11px] text-faint">
             Trace events cited ({events.length})
           </div>
-          <div className="max-h-40 overflow-y-auto rounded border border-line bg-[#0b0b0e]">
+          <div className="max-h-40 overflow-y-auto code-glass">
             <table className="w-full font-mono text-[11px]">
               <tbody>
                 {events.map((event, index) => (

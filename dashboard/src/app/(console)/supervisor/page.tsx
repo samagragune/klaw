@@ -73,7 +73,7 @@ export default function SupervisorPage() {
       />
       <PageBody>
         {!configured ? (
-          <Card className="border-[#4a3a16] bg-[#17130a] px-4 py-3">
+          <Card className="border-[rgba(217,138,0,0.3)] bg-[rgba(217,138,0,0.08)] px-4 py-3">
             <p className="text-xs leading-relaxed text-[var(--warning)]">
               No supervisor LLM provider is configured, so questions cannot be answered
               in natural language. Set <Mono>SUPERVISOR_LLM_PROVIDER</Mono> and{" "}

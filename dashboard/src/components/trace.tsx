@@ -187,7 +187,7 @@ function EventRow({ event, isNew }: { event: TraceEvent; isNew?: boolean }) {
         <Mono className="shrink-0 text-faint">#{event.seq}</Mono>
       </button>
       {open ? (
-        <pre className="overflow-x-auto border-t border-line bg-[#0b0b0e] px-4 py-3 font-mono text-[11px] leading-relaxed text-muted">
+        <pre className="overflow-x-auto code-glass m-3 px-4 py-3 font-mono text-[11px] leading-relaxed">
           {JSON.stringify(event.payload, null, 2)}
         </pre>
       ) : null}

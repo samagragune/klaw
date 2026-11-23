@@ -97,7 +97,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      <aside className="glass-strong sticky top-0 z-10 hidden h-screen w-56 shrink-0 flex-col border-y-0 border-l-0 md:flex">
+      <aside className="glass-strong sticky top-3 z-10 m-3 mr-0 hidden h-[calc(100vh-1.5rem)] w-60 shrink-0 flex-col overflow-hidden rounded-[24px] md:flex">
         <Link href="/" className="flex items-center gap-2.5 border-b border-line px-4 py-4 text-ink">
           <LogoMark size={20} />
           <div className="min-w-0">
@@ -119,10 +119,10 @@ export function Shell({ children }: { children: ReactNode }) {
                       key={href}
                       href={href}
                       className={cn(
-                        "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+                        "press flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-all duration-200",
                         active
-                          ? "bg-panel-raised text-ink"
-                          : "text-muted hover:bg-panel-raised hover:text-ink",
+                          ? "bg-[image:var(--gradient)] font-medium text-white shadow-[0_8px_22px_-10px_rgba(255,90,79,0.75)]"
+                          : "text-muted hover:translate-x-0.5 hover:bg-white/70 hover:text-ink",
                       )}
                     >
                       <Icon className="size-4" strokeWidth={1.75} />
@@ -165,8 +165,8 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
 
       <main className="relative min-w-0 flex-1 overflow-x-hidden">
-        <div className="glow glow-accent glow-drift pointer-events-none fixed right-[-12%] top-[-10%] -z-10 size-[620px] opacity-35" />
-        <div className="glow glow-white pointer-events-none fixed bottom-[-15%] left-[20%] -z-10 size-[520px] opacity-40" />
+        <div className="glow glow-accent glow-drift pointer-events-none fixed right-[-8%] top-[-12%] -z-10 size-[620px] opacity-70" />
+        <div className="glow glow-white glow-drift pointer-events-none fixed bottom-[-15%] left-[20%] -z-10 size-[560px] opacity-70" />
         <BackendStatus />
         {children}
       </main>

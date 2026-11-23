@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Barlow_Condensed, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { Ripples } from "@/components/ripples";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const barlow = Barlow_Condensed({
@@ -20,7 +21,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${inter.variable} ${barlow.variable} ${mono.variable}`}>
-      <body className="bg-bg text-ink antialiased">{children}</body>
+      <body className="text-ink antialiased">
+        <Ripples />
+        {children}
+      </body>
     </html>
   );
 }
