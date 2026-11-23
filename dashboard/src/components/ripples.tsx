@@ -15,6 +15,7 @@ export function Ripples() {
         "button, .btn, [role='button'], a[data-ripple]",
       );
       if (!target || target.hasAttribute("disabled")) return;
+      if (target.closest(".console")) return; // the console keeps motion minimal
       const rect = target.getBoundingClientRect();
       const size = Math.max(rect.width, rect.height) * 2.4;
       const style = getComputedStyle(target);

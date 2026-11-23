@@ -96,8 +96,8 @@ export function Shell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="sticky top-3 z-10 m-3 mr-0 hidden h-[calc(100vh-1.5rem)] w-60 shrink-0 flex-col overflow-hidden rounded-[18px] border border-line bg-[#131118] md:flex">
+    <div className="console flex min-h-screen">
+      <aside className="sticky top-0 z-10 hidden h-screen w-60 shrink-0 flex-col overflow-hidden border-r border-line bg-[#0a090c] md:flex">
         <Link href="/" className="flex items-center gap-2.5 border-b border-line px-4 py-4 text-ink">
           <LogoMark size={20} />
           <div className="min-w-0">
@@ -119,7 +119,7 @@ export function Shell({ children }: { children: ReactNode }) {
                       key={href}
                       href={href}
                       className={cn(
-                        "press flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-all duration-200",
+                        "press flex items-center gap-2.5 rounded-[4px] px-3 py-2 text-sm transition-colors duration-150",
                         active
                           ? "bg-[rgba(241,233,222,0.07)] font-medium text-ink shadow-[inset_2px_0_0_var(--accent)]"
                           : "text-muted hover:bg-[rgba(241,233,222,0.04)] hover:text-ink",
@@ -165,8 +165,6 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
 
       <main className="relative min-w-0 flex-1 overflow-x-hidden">
-        <div className="glow glow-violet glow-drift pointer-events-none fixed right-[-8%] top-[-14%] -z-10 size-[620px] opacity-60" />
-        <div className="glow glow-accent pointer-events-none fixed bottom-[-20%] left-[25%] -z-10 size-[520px] opacity-30" />
         <BackendStatus />
         {children}
       </main>

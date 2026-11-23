@@ -576,3 +576,69 @@ button.btn {
 .display {
   overflow-wrap: break-word;
 }
+
+
+/* ------------------------------------------------------------- console
+ * The operator console: darker, flatter, rectangular, almost still.
+ * Scoped here so the website keeps its own look.
+ */
+.console {
+  --bg: #08070a;
+  --panel: #0e0d11;
+  --panel-raised: #131217;
+  --border: rgba(241, 233, 222, 0.065);
+  --border-strong: rgba(241, 233, 222, 0.12);
+  background: var(--bg);
+}
+.console main {
+  background: var(--bg);
+}
+.console .glass,
+.console .glass-strong,
+.console .glass-float {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.console .glass-hover:hover {
+  transform: none;
+  border-color: var(--border-strong);
+}
+.console .btn,
+.console .press,
+.console button,
+.console input,
+.console select,
+.console textarea {
+  border-radius: 4px !important;
+}
+.console .btn:hover {
+  transform: none;
+}
+.console .btn:active,
+.console .press:active {
+  transform: scale(0.985);
+}
+.console .btn-accent {
+  box-shadow: none;
+}
+.console .btn-accent::after {
+  display: none;
+}
+.console .rise-in,
+.console .row-in {
+  animation: none;
+}
+.console .well,
+.console .code-glass {
+  border-radius: 4px;
+}
+.console .bracket::before {
+  background: repeating-linear-gradient(90deg, var(--text-faint) 0 1px, transparent 1px 6px);
+}
+.console header {
+  background: transparent;
+}
