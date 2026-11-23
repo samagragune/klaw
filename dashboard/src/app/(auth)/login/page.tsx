@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Script from "next/script";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { auth, getApiUrl, setApiUrl, setToken } from "@/lib/api";
+import { auth, enterPreview, exitPreview, getApiUrl, setApiUrl, setToken } from "@/lib/api";
 import { CopyCode, LogoMark } from "@/components/site";
 import { ClawMachine } from "@/components/claw";
 import { INSTALL_SUPERVISOR, START_SUPERVISOR } from "@/lib/site-constants";
@@ -63,6 +63,7 @@ export default function LoginPage() {
 
   const finish = (token: string) => {
     setToken(token);
+    exitPreview();
     window.location.replace("/dashboard");
   };
 
@@ -275,6 +276,19 @@ export default function LoginPage() {
           >
             {mode === "signin" ? "No account on this supervisor? Create one →" : "Already have an account? Sign in →"}
           </button>
+
+          <div className="mt-6 border-t border-line pt-5">
+            <button
+              type="button"
+              className="label-mono text-[11px] text-muted hover:text-ink"
+              onClick={() => {
+                enterPreview();
+                window.location.assign("/dashboard");
+              }}
+            >
+              No supervisor running yet? Look around the console →
+            </button>
+          </div>
         </div>
       </div>
     </div>

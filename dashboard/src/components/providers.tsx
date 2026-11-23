@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
-import { getToken } from "@/lib/api";
+import { getToken, isPreview } from "@/lib/api";
 import { LiveProvider } from "@/lib/live";
 import { Shell } from "./shell";
 
@@ -14,7 +14,8 @@ const noSubscribe = () => () => {};
  */
 function SessionGate({ children }: { children: ReactNode }) {
   // null during server render / hydration, then whether a token exists.
-  const hasToken = useSyncExternalStore(noSubscribe, () => Boolean(getToken()), () => null);
+  // Preview mode opens the console with no supervisor behind it.
+  const hasToken = useSyncExternalStore(noSubscribe, () => Boolean(getToken()) || isPreview(), () => null);
 
   useEffect(() => {
     if (hasToken === false) window.location.replace("/login");

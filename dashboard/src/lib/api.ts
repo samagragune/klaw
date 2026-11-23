@@ -57,6 +57,49 @@ export function clearToken() {
   window.localStorage.removeItem(TOKEN_KEY);
 }
 
+/* ---------------------------------------------------------------- hosting
+ * The console stays usable with no supervisor (and so no model) behind it:
+ * "preview" mode, or a supervisor that cannot be reached. Every place that
+ * would show a value then says so, instead of the page breaking.
+ */
+
+export const NOT_HOSTED = "Model not hosted yet";
+const PREVIEW_KEY = "klaw.preview";
+
+export function isPreview(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(PREVIEW_KEY) === "1" && !window.localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return false;
+  }
+}
+
+export function enterPreview() {
+  window.localStorage.setItem(PREVIEW_KEY, "1");
+}
+
+export function exitPreview() {
+  window.localStorage.removeItem(PREVIEW_KEY);
+}
+
+let hosted = true;
+const hostedListeners = new Set<() => void>();
+
+function setHosted(value: boolean) {
+  if (hosted === value) return;
+  hosted = value;
+  hostedListeners.forEach((listener) => listener());
+}
+
+export const hostedStore = {
+  get: () => hosted && !isPreview(),
+  subscribe: (listener: () => void) => {
+    hostedListeners.add(listener);
+    return () => hostedListeners.delete(listener);
+  },
+};
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -91,19 +134,31 @@ async function publicRequest<T>(path: string, body: unknown): Promise<T> {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
   if (!token) {
+    if (isPreview()) {
+      setHosted(false);
+      throw new ApiError(NOT_HOSTED, 0);
+    }
     redirectToLogin();
     throw new ApiError("Not signed in", 401);
   }
 
-  const response = await fetch(`${getApiUrl()}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(init.headers ?? {}),
-    },
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${getApiUrl()}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(init.headers ?? {}),
+      },
+      cache: "no-store",
+    });
+  } catch {
+    // Nothing answered: the supervisor (and its model) is not running.
+    setHosted(false);
+    throw new ApiError(NOT_HOSTED, 0);
+  }
+  setHosted(true);
 
   if (!response.ok) {
     let detail = response.statusText;
@@ -440,6 +495,15 @@ export interface PolicyConfiguration {
   review_output_before_completion: boolean;
   max_redirects: number;
   forward_permission_requests: boolean;
+  agent_enabled?: boolean;
+  agent_review_completion?: boolean;
+  agent_max_attempts?: number;
+  agent_monitor?: boolean;
+  agent_plan_tasks?: boolean;
+  agent_auto_reports?: boolean;
+  agent_rules?: string[];
+  agent_checks?: Record<string, string>;
+  notify_webhook_url?: string | null;
 }
 
 export interface Policy {
@@ -613,9 +677,169 @@ export const api = {
 
   audit: () => request<AuditEntry[]>("/v1/audit"),
 
+  agentStatus: () => request<KlawAgentStatus>("/v1/agent"),
+  agentFeed: (limit = 60) => request<AgentFeedItem[]>(`/v1/agent/feed${qs({ limit })}`),
+  agentSession: (id: string) => request<AgentSessionView>(`/v1/agent/sessions/${id}`),
+  agentChat: (message: string, execution_id?: string, history: { role: string; text: string }[] = []) =>
+    request<AgentChatReply>("/v1/agent/chat", {
+      method: "POST",
+      body: JSON.stringify({ message, execution_id, history }),
+    }),
+  agentReview: (id: string, focus = "") =>
+    request<AgentReview>(`/v1/agent/sessions/${id}/review`, { method: "POST", body: JSON.stringify({ focus }) }),
+  agentReport: (id: string) => request<AgentReport>(`/v1/agent/sessions/${id}/report`, { method: "POST" }),
+  agentReports: () => request<(AgentReport & { execution_id: string; task: string | null })[]>("/v1/agent/reports"),
+  agentCheckpoints: (id: string) =>
+    request<{ checkpoints: Checkpoint[]; changes_since_latest: string | null }>(`/v1/agent/sessions/${id}/checkpoints`),
+  agentRestore: (id: string, sha: string) =>
+    request<{ restored_to: string; undo_checkpoint: string | null; untracked_left_in_place: string[] }>(
+      `/v1/agent/sessions/${id}/restore`,
+      { method: "POST", body: JSON.stringify({ sha }) },
+    ),
+  agentDigest: (hours = 24) => request<AgentDigest>(`/v1/agent/digest${qs({ hours })}`),
+  agentEffectiveness: () => request<AgentEffectiveness>("/v1/agent/effectiveness"),
+  agentMemory: () => request<AgentMemoryItem[]>("/v1/agent/memory"),
+  agentForget: (id: string) => request<void>(`/v1/agent/memory/${id}`, { method: "DELETE" }),
+
   chat: (message: string, scope: { agent_id?: string; execution_id?: string } = {}) =>
     request<ChatResponse>("/v1/supervisor/chat", {
       method: "POST",
       body: JSON.stringify({ message, ...scope }),
     }),
 };
+
+/* ---------------------------------------------------------------- the Klaw agent */
+
+export interface KlawAgentStatus {
+  available: boolean;
+  enabled: boolean;
+  provider: string;
+  model: string;
+  fast_model: string;
+  reason: string | null;
+  mode: SupervisionMode;
+  cooling_down_seconds: number;
+  last_error: string | null;
+  live_sessions: number;
+  last_24h: {
+    actions_reviewed: number;
+    allowed: number;
+    guided: number;
+    blocked: number;
+    held_for_human: number;
+    stopped: number;
+    completions_passed: number;
+    completions_incomplete: number;
+    completions_retry: number;
+    completions_escalated: number;
+    model_calls: { purpose: string; calls: number; avg_latency_ms: number; cost_usd: number; ok: number }[];
+  };
+}
+
+export interface AgentFeedItem {
+  kind: "action" | "completion" | "guidance" | "assessment";
+  at: string;
+  execution_id: string;
+  session_task: string | null;
+  platform: Platform;
+  tool_name?: string | null;
+  action: string;
+  verdict?: string | null;
+  reasoning: string | null;
+  guidance?: string | null;
+  applied?: string | null;
+  held_back?: string | null;
+}
+
+export interface AgentStep {
+  tool: string;
+  args: Record<string, unknown>;
+  result: string;
+}
+
+export interface AgentInvestigation {
+  at: string;
+  purpose: string;
+  steps: AgentStep[];
+  seconds: number;
+  model_calls: number;
+  finished: boolean;
+  error: string | null;
+  conclusion: Record<string, unknown>;
+}
+
+export interface AgentPlan {
+  requirements: string[];
+  acceptance_checks: string[];
+  risks: string[];
+  progress: string;
+  at: string;
+}
+
+export interface AgentSessionView {
+  memory: string[];
+  assessments: { at: string; assessment: string; action: string; applied: string; reasoning: string; guidance: string | null }[];
+  last_assessment: AgentSessionView["assessments"][number] | null;
+  inbox: { text: string; source: string; at: string }[];
+  plans: Record<string, AgentPlan>;
+  investigations: AgentInvestigation[];
+}
+
+export interface AgentChatReply {
+  answer: string;
+  steps: Omit<AgentStep, "result">[] & { result?: string }[];
+  effects: { type: string; message?: string; reason?: string }[];
+  execution_id?: string;
+}
+
+export interface AgentReview {
+  at: string;
+  summary: string;
+  findings: { severity: string; file?: string; line?: number; issue: string; suggestion?: string }[];
+  steps: AgentStep[];
+}
+
+export interface AgentReport {
+  at: string;
+  summary: string;
+  done?: string[] | null;
+  not_done?: string[] | null;
+  files_changed?: string[] | null;
+  risks?: string[] | null;
+  follow_ups?: string[] | null;
+}
+
+export interface Checkpoint {
+  sha: string;
+  label: string;
+  at: string;
+}
+
+export interface AgentEffectiveness {
+  tasks_sent_back: number;
+  sent_back_then_passed: number;
+  send_back_success_rate: number | null;
+  blocks: number;
+  blocks_retried_anyway: number;
+  block_acceptance_rate: number | null;
+}
+
+export interface AgentDigest {
+  hours: number;
+  sessions: number;
+  by_platform: Record<string, number>;
+  tasks: number;
+  task_status: Record<string, number>;
+  verdicts: Record<string, number>;
+  decisions: Record<string, number>;
+  incidents: { title: string; severity: Severity; category: string; execution_id: string }[];
+  agent_cost: { model_calls: number; usd: number; tokens: number };
+  effectiveness: AgentEffectiveness;
+}
+
+export interface AgentMemoryItem {
+  id: string;
+  project: string;
+  note: string;
+  at: string;
+}

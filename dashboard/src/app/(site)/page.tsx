@@ -96,6 +96,15 @@ const FAQ = [
   ["Is it free?", "Yes. The supervisor and adapters are open source and run on your own hardware; the dashboard is free to use."],
 ];
 
+const AGENT_FEATURES: { step: string; title: string; body: string }[] = [
+  { step: "01", title: "Plans every task", body: "Reads the request and the project, writes down what done means and how to check it, and takes a checkpoint you can undo to." },
+  { step: "02", title: "Checks every action", body: "Allows, guides, blocks, asks you, or stops - with its reasoning. Your rules in plain words, secrets in commands, and risky operations are enforced on every call." },
+  { step: "03", title: "Verifies every 'done'", body: "Reads the real diff, runs your tests, and returns Pass, Incomplete or Needs another attempt. Anything but Pass goes back to the agent with exact instructions." },
+  { step: "04", title: "Acts on its own", body: "Watches live sessions, investigates the ones that look stuck, drifting or risky, and guides or stops them without waiting for you." },
+  { step: "05", title: "Reviews and reports", body: "Code review of what changed with file-and-line findings, a handover report when a session ends, and a daily digest across every agent." },
+  { step: "06", title: "Learns and remembers", body: "Your approvals, denials and preferences become project memory it uses next time. Two agents in one project are warned before they collide." },
+];
+
 export default function LandingPage() {
   return (
     <>
@@ -197,13 +206,32 @@ export default function LandingPage() {
         </div>
       </Section>
 
+      {/* THE KLAW AGENT */}
+      <Section
+        id="agent"
+        label="The Klaw agent"
+        light="Not a log viewer."
+        bold="An agent that supervises agents."
+        intro="Klaw runs its own agent next to yours. It plans, uses tools to gather evidence - files, the git diff, your tests - and decides and acts on what it finds. Bring any brain: Gemini, OpenAI, Anthropic, OpenRouter, Groq, DeepSeek, or a model running locally with Ollama."
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {AGENT_FEATURES.map(({ step, title, body }) => (
+            <div key={title} className="glass glass-hover p-7">
+              <span className="label-mono text-[11px] text-[var(--accent)]">{step}</span>
+              <h3 className="display display-bold mt-4 text-[24px]">{title}</h3>
+              <p className="mt-3 text-sm leading-relaxed text-muted">{body}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
       {/* CAPABILITIES */}
       <Section
         id="capabilities"
         label="Capabilities"
         light="What it catches."
         bold="What it does about it."
-        intro="Deterministic rules decide; a model only advises, and only if you turn it on. Every decision is recorded with the rule, the reason and what the platform could actually carry out."
+        intro="Hard rules the agent can never loosen, and the Klaw agent's judgement on top. Every decision is recorded with the rule or reasoning, and what the platform could actually carry out."
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {CAPABILITIES.map(({ icon: Icon, title, body }) => (

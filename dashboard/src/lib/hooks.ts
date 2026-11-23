@@ -1,7 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError } from "./api";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { ApiError, hostedStore } from "./api";
+
+/** False when there is no supervisor (and so no model) behind the console. */
+export function useHosted(): boolean {
+  return useSyncExternalStore(hostedStore.subscribe, hostedStore.get, () => true);
+}
 
 interface AsyncState<T> {
   data: T | null;

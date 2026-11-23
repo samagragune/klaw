@@ -4,7 +4,28 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import type { ReactNode } from "react";
 import type { AgentStatus, ExecutionStatus, Severity } from "@/lib/api";
+import { NOT_HOSTED, isPreview } from "@/lib/api";
+import { useHosted } from "@/lib/hooks";
 import { ClawSpinner } from "./claw";
+
+/** Shown wherever a value would be when no supervisor/model is running. */
+export function NotHosted({ compact = false }: { compact?: boolean }) {
+  if (compact) {
+    return <span className="label-mono text-[11px] text-faint">{NOT_HOSTED}</span>;
+  }
+  return (
+    <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+      <span className="label-mono text-[11px] text-[var(--accent)]">{NOT_HOSTED}</span>
+      <p className="max-w-md text-xs leading-relaxed text-muted">
+        {isPreview()
+          ? "You are looking around without a supervisor. Start one on your machine with "
+          : "No supervisor is answering at the configured address. Start it with "}
+        <code className="text-ink">klaw-supervisor start</code>
+        {isPreview() ? ", then sign in to see your agents here." : "; this page fills in on its own."}
+      </p>
+    </div>
+  );
+}
 
 export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
@@ -58,6 +79,7 @@ export function Stat({
   hint?: ReactNode;
   tone?: "default" | "warning" | "danger" | "success";
 }) {
+  const hosted = useHosted();
   const toneClass = {
     default: "text-ink",
     warning: "text-[var(--warning)]",
@@ -68,9 +90,9 @@ export function Stat({
     <div className="rounded-lg border border-line bg-panel px-4 py-3">
       <div className="text-[11px] uppercase tracking-wide text-faint">{label}</div>
       <div className={cn("mt-1 text-2xl font-semibold tabular-nums", toneClass)}>
-        {value}
+        {hosted ? value : <NotHosted compact />}
       </div>
-      {hint ? <div className="mt-0.5 text-xs text-muted">{hint}</div> : null}
+      {hint && hosted ? <div className="mt-0.5 text-xs text-muted">{hint}</div> : null}
     </div>
   );
 }
@@ -319,6 +341,8 @@ export function EmptyState({
   description?: ReactNode;
   action?: ReactNode;
 }) {
+  const hosted = useHosted();
+  if (!hosted) return <NotHosted />;
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
       <p className="text-sm text-ink">{title}</p>
@@ -331,6 +355,7 @@ export function EmptyState({
 }
 
 export function ErrorState({ error, retry }: { error: string; retry?: () => void }) {
+  if (error === NOT_HOSTED) return <NotHosted />;
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
       <p className="text-sm text-[var(--failed)]">{error}</p>
@@ -344,6 +369,8 @@ export function ErrorState({ error, retry }: { error: string; retry?: () => void
 }
 
 export function Loading({ label = "Loading" }: { label?: string }) {
+  const hosted = useHosted();
+  if (!hosted) return <NotHosted />;
   return (
     <div className="flex items-center justify-center gap-2.5 px-6 py-12 text-xs text-faint">
       <ClawSpinner size={18} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getApiUrl } from "@/lib/api";
+import { NOT_HOSTED, getApiUrl, isPreview } from "@/lib/api";
 
 type State = "ok" | "waking" | "down";
 
@@ -14,6 +14,7 @@ export function BackendStatus() {
   const [state, setState] = useState<State>("ok");
 
   useEffect(() => {
+    if (isPreview()) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
 
@@ -36,6 +37,18 @@ export function BackendStatus() {
     };
   }, []);
 
+  if (isPreview()) {
+    return (
+      <div role="status" className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2 text-xs text-muted">
+        <span className="size-1.5 rounded-full bg-[var(--accent)]" />
+        <span>
+          Preview - {NOT_HOSTED}. Run <code className="text-ink">klaw-supervisor start</code> on your machine, then
+        </span>
+        <a href="/login" className="text-ink underline">sign in</a>
+        <span>to see your agents.</span>
+      </div>
+    );
+  }
   if (state === "ok") return null;
   return (
     <div

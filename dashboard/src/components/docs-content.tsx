@@ -306,6 +306,81 @@ async def research():
     ),
   },
   {
+    slug: "agent",
+    group: "Use it",
+    title: "The Klaw agent",
+    summary: "The supervisor's own agent: what it does, its tools, and its limits.",
+    body: (
+      <>
+        <P>
+          Klaw runs an agent of its own beside the agents you supervise. It works in a loop - think, use a
+          tool, read the result, decide - and acts on evidence, not on what the supervised agent claims.
+        </P>
+        <Table
+          head={["When", "What it does"]}
+          rows={[
+            ["A task starts", "Plans it: requirements, how to verify each, risks. Takes a git checkpoint."],
+            ["Before each tool call", "Allow, guide, block, ask a human or stop, with its reasoning."],
+            ["The agent says done", "Reads the diff, runs your checks, returns Pass / Incomplete / Needs another attempt, and sends the agent back with instructions (up to your limit, then a human)."],
+            ["A session looks wrong", "Investigates on its own and guides, stops, or alerts you."],
+            ["You ask", "Chat about any session; it looks things up and can act."],
+            ["A session ends", "Writes a handover report."],
+          ]}
+        />
+        <H>Its tools</H>
+        <UL
+          items={[
+            "read_file, list_dir, search - read-only, inside the session's project, never .env or key files.",
+            "git status / diff / log, and changes since the task's checkpoint.",
+            "run_check - only commands you name in the policy (for example tests = pytest -q).",
+            "session and project history, project memory, plan updates.",
+            "send_guidance, stop_session, notify_operator - the same paths as an operator.",
+          ]}
+        />
+        <H>Also</H>
+        <UL
+          items={[
+            "Secret-leak guard: keys and tokens in commands or file writes are blocked.",
+            "Rules in plain words, enforced on every action and verdict.",
+            "Checkpoints and undo from the session page; the restore is itself undoable.",
+            "Code review on demand with file-and-line findings.",
+            "Learning: approvals, denials and preferences become project memory.",
+            "Conflict detection when two agents edit the same files; webhook alerts to Slack or Discord.",
+            "Effectiveness: how often send-backs led to a pass, and blocks were accepted.",
+          ]}
+        />
+        <P>
+          The agent can make any decision stricter, but cannot loosen your policy lists, an operator stop,
+          the secret guard, or a high-risk rule. If the model is slow or unavailable, the rules decide alone.
+        </P>
+      </>
+    ),
+  },
+  {
+    slug: "brain",
+    group: "Use it",
+    title: "Choose the brain",
+    summary: "Run the agent on Gemini, OpenAI, Anthropic, any OpenAI-compatible API, or locally with Ollama.",
+    body: (
+      <>
+        <P>The model runs from the supervisor on your machine; your key never reaches the website.</P>
+        <Code code={`klaw-supervisor set-key                      # Gemini (default)
+klaw-supervisor set-brain anthropic          # Claude models
+klaw-supervisor set-brain openai --model <name>
+klaw-supervisor set-brain openrouter --model <vendor/model>
+klaw-supervisor set-brain groq --model <name>
+klaw-supervisor set-brain deepseek
+klaw-supervisor set-brain ollama --model qwen3:8b    # local, no key
+klaw-supervisor set-brain custom --base-url https://... --model <name>`} />
+        <P>
+          The key is typed hidden and saved to the supervisor&apos;s config.env. Restart the supervisor
+          after changing it. Until a model is configured, the console shows &ldquo;Model not hosted yet&rdquo;
+          where the agent&apos;s values would be, and the rules decide alone.
+        </P>
+      </>
+    ),
+  },
+  {
     slug: "protocol",
     group: "Reference",
     title: "Event protocol",

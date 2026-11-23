@@ -14,6 +14,7 @@ import {
   LogOut,
   MessagesSquare,
   Plug,
+  Sparkles,
   Radio,
   Settings,
   ShieldCheck,
@@ -21,7 +22,7 @@ import {
 import type { ReactNode } from "react";
 import { useLive } from "@/lib/live";
 import { useAsync } from "@/lib/hooks";
-import { api, clearToken } from "@/lib/api";
+import { api, clearToken, exitPreview, isPreview } from "@/lib/api";
 import { cn } from "./ui";
 import { BackendStatus } from "./backend-status";
 import { LogoMark } from "./site";
@@ -40,6 +41,7 @@ const NAV_GROUPS = [
   {
     label: "Supervise",
     items: [
+      { href: "/agent", label: "Klaw agent", icon: Sparkles },
       { href: "/approvals", label: "Approvals", icon: Hand },
       { href: "/incidents", label: "Detected issues", icon: AlertTriangle },
       { href: "/interventions", label: "Interventions", icon: CheckSquare },
@@ -63,7 +65,7 @@ function ConnectionPill() {
     open: { color: "var(--success)", label: "live" },
     connecting: { color: "var(--warning)", label: "connecting" },
     closed: { color: "var(--failed)", label: "offline" },
-    unauthorized: { color: "var(--failed)", label: "no token" },
+    unauthorized: { color: "var(--failed)", label: "not hosted" },
   } as const;
   const { color, label } = map[status];
   return (
@@ -150,6 +152,7 @@ export function Shell({ children }: { children: ReactNode }) {
               className="text-faint hover:text-ink"
               onClick={() => {
                 clearToken();
+                exitPreview();
                 window.location.replace("/login");
               }}
             >
@@ -157,6 +160,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </button>
           </div>
           {me.data ? <div className="truncate text-[11px] text-faint">{me.data.email}</div> : null}
+          {isPreview() ? <div className="truncate text-[11px] text-faint">preview - no supervisor</div> : null}
         </div>
       </aside>
 

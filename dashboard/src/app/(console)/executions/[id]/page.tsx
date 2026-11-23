@@ -18,6 +18,7 @@ import { PageBody, PageHeader } from "@/components/shell";
 import { EventTimeline } from "@/components/trace";
 import { ExecutionControls, InterventionList } from "@/components/controls";
 import { IncidentCard } from "@/components/incident";
+import { AgentSessionPanel } from "@/components/agent-session";
 import { ActionBadge, PlatformBadge } from "@/components/platform";
 import {
   Button,
@@ -360,6 +361,7 @@ export default function ExecutionPage() {
             />
           </div>
         </Card>
+        <AgentSessionPanel executionId={id} />
       </PageBody>
     </>
   );

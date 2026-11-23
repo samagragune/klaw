@@ -436,26 +436,82 @@ export default function PoliciesPage() {
 
         <Card>
           <CardHeader
-            title="Output evaluation"
-            description="Deterministic rules cannot tell whether an answer is right. This asks the supervisor LLM."
+            title="Klaw agent"
+            description="The supervisor's own agent. It thinks with the model you chose (klaw-supervisor set-brain) on the machine running the supervisor."
           />
-          <label className="flex cursor-pointer items-start gap-3 p-4">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={config.evaluate_output_on_completion}
-              onChange={(event) =>
-                update({ evaluate_output_on_completion: event.target.checked })
-              }
-            />
-            <span className="text-xs leading-relaxed text-muted">
-              <span className="text-ink">Evaluate every completed run.</span> Sends the
-              task, trace digest and output summary to the configured supervisor model
-              and raises a <code>poor_output</code> incident when it judges the
-              objective unmet with medium or high confidence. Each run costs one
-              model call.
-            </span>
-          </label>
+          <div className="space-y-3 p-4">
+            {([
+              ["agent_enabled", "Let the agent reason about every action", "It allows, guides, blocks, asks a human or stops - and cannot overrule your policy lists, secrets or high-risk rules."],
+              ["agent_plan_tasks", "Plan each new task", "It works out what done means, how to verify it and the risks, and takes a checkpoint you can undo to."],
+              ["agent_review_completion", "Verify every 'done'", "It reads the real diff, runs your checks, and answers Pass, Incomplete or Needs another attempt - sending the agent back with instructions."],
+              ["agent_monitor", "Watch live sessions on its own", "It investigates sessions that look stuck, drifting or risky, and guides or stops them."],
+              ["agent_auto_reports", "Write a report when a session ends", "Asked, done, left, risks and next steps."],
+            ] as const).map(([key, title, body]) => (
+              <label key={key} className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={config[key] ?? true}
+                  onChange={(event) => update({ [key]: event.target.checked })}
+                />
+                <span className="text-xs leading-relaxed text-muted">
+                  <span className="text-ink">{title}.</span> {body}
+                </span>
+              </label>
+            ))}
+            <Field label="Times a task can be sent back before a human takes over">
+              <Input
+                type="number"
+                min={0}
+                max={5}
+                value={config.agent_max_attempts ?? 2}
+                onChange={(event) => update({ agent_max_attempts: Number(event.target.value) || 0 })}
+              />
+            </Field>
+          </div>
+          <div className="grid gap-4 border-t border-line p-4 md:grid-cols-2">
+            <Field label="Rules in plain words (one per line)">
+              <textarea
+                rows={5}
+                value={(config.agent_rules ?? []).join("\n")}
+                onChange={(event) =>
+                  update({ agent_rules: event.target.value.split("\n").map((r) => r.trimStart()).filter((r, i, all) => r || i < all.length - 1) })
+                }
+                placeholder={"Never edit files under migrations/\nAsk before installing new packages\nDon't change tests to make them pass"}
+                className="w-full border border-line-strong bg-bg p-2 text-xs text-ink outline-none focus:border-[var(--accent)]"
+              />
+            </Field>
+            <Field label="Checks the agent may run (name = command, one per line)">
+              <textarea
+                rows={5}
+                value={Object.entries(config.agent_checks ?? {}).map(([k, v]) => `${k} = ${v}`).join("\n")}
+                onChange={(event) =>
+                  update({
+                    agent_checks: Object.fromEntries(
+                      event.target.value
+                        .split("\n")
+                        .map((line) => line.split("="))
+                        .filter((parts) => parts.length >= 2 && parts[0].trim())
+                        .map(([k, ...rest]) => [k.trim(), rest.join("=").trim()]),
+                    ),
+                  })
+                }
+                placeholder={"tests = pytest -q\nlint = npm run lint"}
+                className="w-full border border-line-strong bg-bg p-2 font-mono text-xs text-ink outline-none focus:border-[var(--accent)]"
+              />
+            </Field>
+            <Field label="Alert webhook (Slack, Discord or any URL)">
+              <Input
+                value={config.notify_webhook_url ?? ""}
+                onChange={(event) => update({ notify_webhook_url: event.target.value || null })}
+                placeholder="https://hooks.slack.com/services/..."
+              />
+            </Field>
+            <p className="self-end text-xs leading-relaxed text-muted">
+              The agent picks a check by name and never writes its own commands. Its file tools
+              are read-only and never open .env or key files.
+            </p>
+          </div>
         </Card>
 
         <div className="flex items-center gap-3">
